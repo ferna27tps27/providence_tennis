@@ -153,3 +153,30 @@ export async function getMemberReservations(
 
   return response.json();
 }
+
+/**
+ * Get all players (members with role="player")
+ */
+export async function getPlayers(token: string, search?: string): Promise<Member[]> {
+  const params = new URLSearchParams();
+  params.append("role", "player");
+  params.append("filter", "active");
+  if (search) {
+    params.append("search", search);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/members?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "Failed to get players");
+  }
+
+  return response.json();
+}

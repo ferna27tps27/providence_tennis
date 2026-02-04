@@ -20,6 +20,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Profile", href: "/dashboard/profile", icon: "👤" },
     { name: "Bookings", href: "/dashboard/bookings", icon: "📅" },
     { name: "Payments", href: "/dashboard/payments", icon: "💳" },
+    { name: "Journal", href: "/dashboard/journal", icon: "📝" },
   ];
   const navItems =
     user?.role === "admin"

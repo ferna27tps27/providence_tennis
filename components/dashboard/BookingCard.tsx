@@ -2,6 +2,9 @@
 
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
+import CoachJournalForm from "@/components/journal/CoachJournalForm";
 
 interface BookingCardProps {
   reservation: {
@@ -12,6 +15,7 @@ interface BookingCardProps {
       start: string;
       end: string;
     };
+    memberId?: string;
     status: "confirmed" | "cancelled";
     paymentStatus?: "pending" | "paid" | "refunded" | "failed";
     paymentAmount?: number;
@@ -38,11 +42,14 @@ export default function BookingCard({
   onKeep,
   onConfirmCancel,
 }: BookingCardProps) {
+  const { user } = useAuth();
+  const [showJournalForm, setShowJournalForm] = useState(false);
   const bookingStart = new Date(`${reservation.date}T${reservation.timeSlot?.start ?? "00:00"}`);
   const isUpcoming = bookingStart >= new Date();
   const isCancelled = reservation.status === "cancelled";
   const showConfirm = confirmCancelId === reservation.id;
   const useInlineConfirm = Boolean(onCancelClick && onKeep && onConfirmCancel);
+  const isCoach = user?.role === "coach" || user?.role === "admin";
 
   const formatDate = (dateStr: string) => {
     try {
@@ -122,46 +129,79 @@ export default function BookingCard({
           </div>
         </div>
 
-        {isUpcoming && !isCancelled && (onCancel || onConfirmCancel) && (
-          <div className="ml-4 flex flex-col items-end gap-2">
-            {showConfirm ? (
-              <>
-                <p className="text-sm text-gray-700 mb-1">Cancel this booking? A refund may apply per our policy.</p>
-                {cancelError && (
-                  <p className="text-sm text-red-600 mb-1">{cancelError}</p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onKeep}
-                    disabled={isCancelling}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    Keep booking
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onConfirmCancel?.(reservation.id)}
-                    disabled={isCancelling}
-                    className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isCancelling ? "Cancelling…" : "Confirm cancel"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={handleCancelClick}
-                disabled={isCancelling}
-                className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        )}
+        <div className="ml-4 flex flex-col items-end gap-2">
+          {/* Journal Entry Button (Coaches only, for past or current reservations) */}
+          {isCoach && !isCancelled && (
+            <button
+              type="button"
+              onClick={() => setShowJournalForm(!showJournalForm)}
+              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              {showJournalForm ? "✕ Close" : "📝 Create Journal Entry"}
+            </button>
+          )}
+
+          {/* Cancel Button (Upcoming only) */}
+          {isUpcoming && !isCancelled && (onCancel || onConfirmCancel) && (
+            <>
+              {showConfirm ? (
+                <>
+                  <p className="text-sm text-gray-700 mb-1">Cancel this booking? A refund may apply per our policy.</p>
+                  {cancelError && (
+                    <p className="text-sm text-red-600 mb-1">{cancelError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={onKeep}
+                      disabled={isCancelling}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      Keep booking
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onConfirmCancel?.(reservation.id)}
+                      disabled={isCancelling}
+                      className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCancelling ? "Cancelling…" : "Confirm cancel"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCancelClick}
+                  disabled={isCancelling}
+                  className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Journal Entry Form Modal */}
+      {showJournalForm && isCoach && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-blue-900 mb-3">Create Journal Entry</h4>
+            <CoachJournalForm
+              initialPlayerId={reservation.memberId || ""}
+              initialReservationId={reservation.id}
+              initialDate={reservation.date}
+              initialTime={reservation.timeSlot.start}
+              onSuccess={() => {
+                setShowJournalForm(false);
+              }}
+              onCancel={() => setShowJournalForm(false)}
+            />
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

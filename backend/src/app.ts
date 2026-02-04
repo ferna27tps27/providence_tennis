@@ -28,6 +28,7 @@ import {
   deleteMember,
   listMembers,
   searchMembers,
+  getMembersByRole,
 } from "./lib/members";
 import { MemberRequest } from "./types/member";
 import {
@@ -75,6 +76,23 @@ import {
   InvalidAmountError,
   StripeError,
 } from "./lib/errors/payment-errors";
+import {
+  createJournalEntry,
+  getJournalEntry,
+  getJournalEntries,
+  updateJournalEntry,
+  deleteJournalEntry,
+  canViewJournalEntry,
+} from "./lib/journal";
+import { JournalEntryRequest, JournalFilter } from "./types/journal";
+import {
+  JournalEntryNotFoundError,
+  JournalValidationError,
+  JournalAuthorizationError,
+  JournalLockError,
+  JournalError,
+} from "./lib/errors/journal-errors";
+import { normalizeRole } from "./lib/utils/role-utils";
 
 const app = express();
 
@@ -660,11 +678,29 @@ app.get("/api/members", async (req, res) => {
   try {
     const filter = req.query.filter as "all" | "active" | "inactive" | undefined;
     const search = req.query.search as string | undefined;
+    const role = req.query.role as string | undefined;
 
-    const members = await listMembers({
-      status: filter || "all",
-      search: search,
-    });
+    let members;
+    if (role) {
+      // Get members by role
+      members = await getMembersByRole(role as any);
+      // Apply additional filters if needed
+      if (filter && filter !== "all") {
+        members = members.filter((m) => 
+          filter === "active" ? m.isActive : !m.isActive
+        );
+      }
+      if (search) {
+        const allMembers = await searchMembers(search);
+        const memberIds = new Set(members.map(m => m.id));
+        members = allMembers.filter(m => memberIds.has(m.id));
+      }
+    } else {
+      members = await listMembers({
+        status: filter || "all",
+        search: search,
+      });
+    }
 
     return res.json(members);
   } catch (error: any) {
@@ -1641,6 +1677,299 @@ app.post("/api/payments/:id/refund", authenticate, async (req, res) => {
 
     return res.status(500).json({
       error: error.message || "Failed to process refund",
+    });
+  }
+});
+
+// ==================== Journal Endpoints ====================
+
+/**
+ * Create journal entry (coach only)
+ */
+app.post("/api/journal/entries", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const body: JournalEntryRequest = req.body;
+
+    const entry = await createJournalEntry(body, member.id);
+
+    return res.status(201).json(entry);
+  } catch (error: any) {
+    console.error("Error creating journal entry:", error);
+    
+    if (error instanceof JournalValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalAuthorizationError) {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalLockError) {
+      return res.status(503).json({ error: error.message, code: error.code });
+    }
+    
+    return res.status(500).json({
+      error: error.message || "Failed to create journal entry",
+    });
+  }
+});
+
+/**
+ * Get journal entries with optional filtering
+ */
+app.get("/api/journal/entries", authenticate, async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const memberRole = normalizeRole(member.role);
+
+    // Build filter from query params
+    const filter: JournalFilter = {};
+    
+    // Store name-based search queries for filtering after enrichment
+    const playerNameQuery = req.query.playerName ? String(req.query.playerName).trim() : null;
+    const coachNameQuery = req.query.coachName ? String(req.query.coachName).trim() : null;
+
+    // Players can only see their own entries
+    if (memberRole === "player") {
+      filter.playerId = member.id;
+    } else if (memberRole === "coach") {
+      // Coaches can filter by playerId or playerName, or see all their entries
+      if (req.query.playerId) {
+        filter.playerId = String(req.query.playerId);
+      } else if (!playerNameQuery) {
+        // If no player filter, show only this coach's entries
+        filter.coachId = member.id;
+      }
+      // If playerName is provided, we'll filter after enrichment
+    }
+    // Admins can see all entries
+
+    // Handle coachId filter (coachName will be handled after enrichment)
+    if (req.query.coachId) {
+      filter.coachId = String(req.query.coachId);
+    }
+
+    // Handle playerId filter (playerName will be handled after enrichment)
+    if (req.query.playerId && !filter.playerId) {
+      filter.playerId = String(req.query.playerId);
+    }
+
+    if (req.query.startDate) {
+      filter.startDate = String(req.query.startDate);
+    }
+    if (req.query.endDate) {
+      filter.endDate = String(req.query.endDate);
+    }
+    if (req.query.areaWorkedOn) {
+      filter.areaWorkedOn = String(req.query.areaWorkedOn);
+    }
+
+    const entries = await getJournalEntries(filter);
+
+    // Enrich entries with coach/player names
+    let enriched = await Promise.all(
+      entries.map(async (entry) => {
+        try {
+          // Ensure IDs are strings (defensive check)
+          const coachId = String(entry.coachId || "");
+          const playerId = String(entry.playerId || "");
+          
+          if (!coachId || !playerId) {
+            console.warn(`Journal entry ${entry.id} has invalid IDs: coachId=${coachId}, playerId=${playerId}`);
+            return entry;
+          }
+          
+          const coach = await getMember(coachId);
+          const player = await getMember(playerId);
+          return {
+            ...entry,
+            coachName: `${coach.firstName} ${coach.lastName}`,
+            playerName: `${player.firstName} ${player.lastName}`,
+          };
+        } catch (error: any) {
+          console.error(`Error enriching journal entry ${entry.id}:`, error.message);
+          return entry;
+        }
+      })
+    );
+
+    // Filter by name if name queries were provided
+    if (playerNameQuery) {
+      const lowerPlayerName = playerNameQuery.toLowerCase();
+      enriched = enriched.filter((entry) => {
+        const enrichedEntry = entry as typeof entry & { playerName?: string };
+        const entryPlayerName = enrichedEntry.playerName?.toLowerCase() || "";
+        return entryPlayerName.includes(lowerPlayerName);
+      });
+    }
+
+    if (coachNameQuery) {
+      const lowerCoachName = coachNameQuery.toLowerCase();
+      enriched = enriched.filter((entry) => {
+        const enrichedEntry = entry as typeof entry & { coachName?: string };
+        const entryCoachName = enrichedEntry.coachName?.toLowerCase() || "";
+        return entryCoachName.includes(lowerCoachName);
+      });
+    }
+
+    return res.json({
+      entries: enriched,
+      total: enriched.length,
+    });
+  } catch (error: any) {
+    console.error("Error fetching journal entries:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch journal entries",
+    });
+  }
+});
+
+/**
+ * Get journal entry by ID
+ */
+app.get("/api/journal/entries/:id", authenticate, async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const entryId = req.params.id;
+
+    // Check authorization
+    const canView = await canViewJournalEntry(entryId, member.id);
+    if (!canView) {
+      return res.status(403).json({
+        error: "Not authorized to view this journal entry",
+        code: "UNAUTHORIZED",
+      });
+    }
+
+    const entry = await getJournalEntry(entryId);
+
+    // Enrich with names
+    try {
+      // Ensure IDs are strings (defensive check)
+      const coachId = String(entry.coachId || "");
+      const playerId = String(entry.playerId || "");
+      
+      if (!coachId || !playerId) {
+        console.warn(`Journal entry ${entry.id} has invalid IDs: coachId=${coachId}, playerId=${playerId}`);
+        return res.json(entry);
+      }
+      
+      const coach = await getMember(coachId);
+      const player = await getMember(playerId);
+      const enriched = {
+        ...entry,
+        coachName: `${coach.firstName} ${coach.lastName}`,
+        playerName: `${player.firstName} ${player.lastName}`,
+      };
+      return res.json(enriched);
+    } catch (error: any) {
+      console.error(`Error enriching journal entry ${entry.id}:`, error.message);
+      return res.json(entry);
+    }
+  } catch (error: any) {
+    console.error("Error fetching journal entry:", error);
+    
+    if (error instanceof JournalEntryNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalAuthorizationError) {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    
+    return res.status(500).json({
+      error: error.message || "Failed to fetch journal entry",
+    });
+  }
+});
+
+/**
+ * Update journal entry
+ */
+app.put("/api/journal/entries/:id", authenticate, async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const entryId = req.params.id;
+    const updates: Partial<JournalEntryRequest> = req.body;
+
+    const entry = await updateJournalEntry(entryId, updates, member.id);
+
+    // Enrich with names
+    try {
+      // Ensure IDs are strings (defensive check)
+      const coachId = String(entry.coachId || "");
+      const playerId = String(entry.playerId || "");
+      
+      if (!coachId || !playerId) {
+        console.warn(`Journal entry ${entry.id} has invalid IDs: coachId=${coachId}, playerId=${playerId}`);
+        return res.json(entry);
+      }
+      
+      const coach = await getMember(coachId);
+      const player = await getMember(playerId);
+      const enriched = {
+        ...entry,
+        coachName: `${coach.firstName} ${coach.lastName}`,
+        playerName: `${player.firstName} ${player.lastName}`,
+      };
+      return res.json(enriched);
+    } catch (error: any) {
+      console.error(`Error enriching journal entry ${entry.id}:`, error.message);
+      return res.json(entry);
+    }
+  } catch (error: any) {
+    console.error("Error updating journal entry:", error);
+    
+    if (error instanceof JournalEntryNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalAuthorizationError) {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalLockError) {
+      return res.status(503).json({ error: error.message, code: error.code });
+    }
+    
+    return res.status(500).json({
+      error: error.message || "Failed to update journal entry",
+    });
+  }
+});
+
+/**
+ * Delete journal entry
+ */
+app.delete("/api/journal/entries/:id", authenticate, async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const entryId = req.params.id;
+
+    const deleted = await deleteJournalEntry(entryId, member.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        error: "Journal entry not found",
+        code: "NOT_FOUND",
+      });
+    }
+
+    return res.status(204).send();
+  } catch (error: any) {
+    console.error("Error deleting journal entry:", error);
+    
+    if (error instanceof JournalEntryNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalAuthorizationError) {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalLockError) {
+      return res.status(503).json({ error: error.message, code: error.code });
+    }
+    
+    return res.status(500).json({
+      error: error.message || "Failed to delete journal entry",
     });
   }
 });
