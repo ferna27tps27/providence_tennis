@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "name": "Court 1",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "2",
+    "name": "Court 2",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "3",
+    "name": "Court 3",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "4",
+    "name": "Court 4",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "5",
+    "name": "Court 5",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "6",
+    "name": "Court 6",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "7",
+    "name": "Court 7",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "8",
+    "name": "Court 8",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "9",
+    "name": "Court 9",
+    "type": "clay",
+    "available": true
+  },
+  {
+    "id": "10",
+    "name": "Court 10",
+    "type": "clay",
+    "available": true
+  }
+]
