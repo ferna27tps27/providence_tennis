@@ -234,3 +234,28 @@ export async function canViewJournalEntry(entryId: string, userId: string): Prom
 
   return false;
 }
+
+/**
+ * Add or update player reflection on a journal entry
+ */
+export async function addPlayerReflection(
+  entryId: string,
+  playerId: string,
+  reflection: string
+): Promise<JournalEntry> {
+  const entry = await getJournalEntry(entryId);
+
+  // Only the player who the entry is about can add a reflection
+  if (entry.playerId !== playerId) {
+    throw new JournalAuthorizationError("Only the player who this entry is about can add a reflection");
+  }
+
+  // Validate reflection
+  if (!reflection || typeof reflection !== "string" || reflection.trim().length === 0) {
+    throw new JournalValidationError("Reflection cannot be empty");
+  }
+
+  return journalRepository.update(entryId, {
+    playerReflection: reflection.trim(),
+  });
+}

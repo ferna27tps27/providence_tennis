@@ -26,7 +26,7 @@ npm run test:performance    # Performance
 ## Test Coverage
 
 - Unit: time ranges, file locking, cache, members, validation, API
-- Integration: auth flow, payments, reservations, member-reservation, roles
+- Integration: auth flow, payments, reservations, member-reservation, roles, journal API
 - Smoke: health, CRUD, filters, errors
 - Performance: response time and throughput checks
 

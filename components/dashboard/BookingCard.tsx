@@ -2,9 +2,10 @@
 
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import CoachJournalForm from "@/components/journal/CoachJournalForm";
+import { getLatestJournalEntryForPlayer, JournalEntry } from "@/lib/api/journal-api";
 
 interface BookingCardProps {
   reservation: {
@@ -42,14 +43,36 @@ export default function BookingCard({
   onKeep,
   onConfirmCancel,
 }: BookingCardProps) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [showJournalForm, setShowJournalForm] = useState(false);
+  const [lastJournalEntry, setLastJournalEntry] = useState<JournalEntry | null>(null);
+  const [showJournalPreview, setShowJournalPreview] = useState(false);
+  const [loadingJournal, setLoadingJournal] = useState(false);
   const bookingStart = new Date(`${reservation.date}T${reservation.timeSlot?.start ?? "00:00"}`);
   const isUpcoming = bookingStart >= new Date();
   const isCancelled = reservation.status === "cancelled";
   const showConfirm = confirmCancelId === reservation.id;
   const useInlineConfirm = Boolean(onCancelClick && onKeep && onConfirmCancel);
   const isCoach = user?.role === "coach" || user?.role === "admin";
+
+  // Fetch last journal entry for this player
+  useEffect(() => {
+    if (!reservation.memberId || !token || isCancelled) return;
+    
+    const fetchLastEntry = async () => {
+      setLoadingJournal(true);
+      try {
+        const entry = await getLatestJournalEntryForPlayer(reservation.memberId!, token);
+        setLastJournalEntry(entry);
+      } catch (error) {
+        console.error("Error fetching last journal entry:", error);
+      } finally {
+        setLoadingJournal(false);
+      }
+    };
+
+    fetchLastEntry();
+  }, [reservation.memberId, token, isCancelled, showJournalForm]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -183,6 +206,61 @@ export default function BookingCard({
           )}
         </div>
       </div>
+
+      {/* Last Journal Entry Preview */}
+      {!isCancelled && lastJournalEntry && !showJournalForm && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={() => setShowJournalPreview(!showJournalPreview)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">📔 Last Journal Entry</span>
+              <span className="text-xs text-gray-500">
+                {format(new Date(lastJournalEntry.sessionDate), "MMM d, yyyy")}
+              </span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-gray-500 transition-transform ${showJournalPreview ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showJournalPreview && (
+            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+              <div className="mb-2">
+                <span className="font-medium text-yellow-900">Summary:</span>
+                <p className="text-yellow-800 mt-1">{lastJournalEntry.summary}</p>
+              </div>
+              
+              {lastJournalEntry.areasWorkedOn.length > 0 && (
+                <div className="mb-2">
+                  <span className="font-medium text-yellow-900">Areas:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {lastJournalEntry.areasWorkedOn.map((area) => (
+                      <span
+                        key={area}
+                        className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-yellow-100 border border-yellow-300 rounded p-2 mt-2">
+                <span className="font-medium text-yellow-900 text-xs">Next Session:</span>
+                <p className="text-yellow-800 text-xs mt-1">{lastJournalEntry.pointersForNextSession}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Journal Entry Form Modal */}
       {showJournalForm && isCoach && (

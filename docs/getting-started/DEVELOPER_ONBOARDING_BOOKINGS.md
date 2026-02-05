@@ -91,6 +91,25 @@ Admin-only endpoints (require `admin` role):
 File:
 - `backend/src/app.ts`
 
+## Backend: Coaching Journals
+
+Coaching journals let coaches record session summaries, focus areas, and pointers for the next session. Players can view entries about themselves.
+
+### Journal data and storage
+- Journal entries are stored in `backend/data/journal-entries.json` (path respects `DATA_DIR` when set).
+- File-based repository with locking: `backend/src/lib/repositories/file-journal-repository.ts`.
+- Business logic and authorization: `backend/src/lib/journal.ts`.
+
+### Journal endpoints (authenticated)
+- `POST /api/journal/entries` — create entry (coach or admin only).
+- `GET /api/journal/entries` — list with filters (playerId, coachId, startDate, endDate, areaWorkedOn; players see only their own).
+- `GET /api/journal/entries/:id` — get one (coach who wrote it or player it’s about).
+- `PUT /api/journal/entries/:id` — update (coach who created or admin).
+- `DELETE /api/journal/entries/:id` — delete (coach who created or admin).
+
+Files:
+- `backend/src/app.ts` (routes), `backend/src/lib/journal.ts`, `backend/src/types/journal.ts`, `backend/src/lib/errors/journal-errors.ts`
+
 ## Frontend: Auth and Member Context
 
 ### Auth state
@@ -149,6 +168,20 @@ Admins see the "Admin Bookings" link in the dashboard sidebar.
 File:
 - `components/dashboard/DashboardLayout.tsx`
 
+## Frontend: Coaching Journals
+
+### Journal in the dashboard
+- All dashboard users see a **Journal** item in the sidebar (`/dashboard/journal`).
+- **Coaches:** `CoachJournalView` — list entries (with filters by player, date range, area), create new entries, edit/delete their own. Optional draft in `localStorage`.
+- **Players:** `PlayerJournalView` — read-only list of entries about them (filter by coach, dates, area).
+- **Create from booking:** In the bookings list, coaches see "Create Journal Entry" on a booking; it opens `CoachJournalForm` in a modal with player and optional reservation pre-filled.
+
+Files:
+- `app/dashboard/journal/page.tsx`, `app/(dashboard)/journal/page.tsx`
+- `components/journal/CoachJournalView.tsx`, `components/journal/CoachJournalForm.tsx`, `components/journal/PlayerJournalView.tsx`, `components/journal/JournalEntryCard.tsx`
+- `components/dashboard/BookingCard.tsx` (journal button and modal)
+- `lib/api/journal-api.ts`
+
 ## Data Model Summary
 
 ### Member (stored in `backend/data/members.json`)
@@ -164,17 +197,29 @@ File:
 - `status` (`confirmed|cancelled`)
 - `paymentId`, `paymentStatus`, `paymentAmount` (optional)
 
+### Journal entry (stored in `backend/data/journal-entries.json`)
+- `id`, `playerId`, `coachId`, `reservationId` (optional), `sessionDate`, `sessionTime` (optional)
+- `summary`, `areasWorkedOn` (array), `pointersForNextSession`, `additionalNotes` (optional)
+- `createdAt`, `lastModified`, `createdBy`
+
 ## How to Trace a Booking (End-to-End)
 1. UI form (`CourtReservation`) builds reservation data.
 2. `POST /api/reservations` validates, writes to repository, returns booking.
 3. Member bookings page requests `/api/members/me/reservations`.
 4. Admin dashboard requests `/api/admin/reservations`.
 
+## How to Trace a Journal Entry (End-to-End)
+1. Coach opens Journal from sidebar or "Create Journal Entry" on a booking; `CoachJournalForm` submits to `POST /api/journal/entries`.
+2. Backend validates, ensures player/coach exist, writes to file repository.
+3. Coach/player Journal page requests `GET /api/journal/entries` (with optional filters); entries may be enriched with coach/player names.
+
 ## Key Files Index
 - Frontend booking UI: `components/CourtReservation.tsx`
 - Member bookings UI: `app/(dashboard)/bookings/page.tsx`
 - Admin bookings UI: `app/dashboard/admin/bookings/page.tsx`
+- Journal UI: `components/journal/CoachJournalView.tsx`, `CoachJournalForm.tsx`, `PlayerJournalView.tsx`, `lib/api/journal-api.ts`
 - Auth context: `lib/auth/auth-context.tsx`
 - Backend reservations: `backend/src/lib/reservations.ts`
 - Backend members: `backend/src/lib/members.ts`
+- Backend journal: `backend/src/lib/journal.ts`, `backend/src/lib/repositories/file-journal-repository.ts`
 - Backend endpoints: `backend/src/app.ts`

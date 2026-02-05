@@ -28,7 +28,7 @@ Single source of truth for ports, URLs, and configuration.
 **Frontend (`.env.local`):**  
 `GOOGLE_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_BASE_URL`
 
-See [templates/.env.example](templates/.env.example) and [templates/.env.local.example](templates/.env.local.example).
+See [env.sample](../env.sample) at project root (copy sections to `.env.local` and `backend/.env`).
 
 ## Data Files
 
@@ -36,6 +36,7 @@ See [templates/.env.example](templates/.env.example) and [templates/.env.local.e
 - `backend/data/reservations.json`
 - `backend/data/payments.json`
 - `backend/data/courts.json`
+- `backend/data/journal-entries.json` (coaching journal entries; path uses `DATA_DIR` when set)
 
 ## Running Tests
 

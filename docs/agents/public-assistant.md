@@ -1,4 +1,6 @@
-# AI Agent Documentation
+# Public AI Assistant
+
+**Website chat agent — facility info, reservations, general tennis Q&A.**
 
 ## Table of Contents
 1. [Overview](#overview)

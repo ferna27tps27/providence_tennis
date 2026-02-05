@@ -62,5 +62,37 @@
     "lastModified": "2026-01-25T03:10:03.003Z",
     "passwordHash": "$2b$10$p9ejTY13nsVxmo5r54iQxeoWe5ZliLmuj2NnU27T7oKeKQAY5J.OG",
     "emailVerified": true
+  },
+  {
+    "id": "1770298208162",
+    "memberNumber": "MEM-0005",
+    "firstName": "Admin",
+    "lastName": "Test",
+    "email": "admin.test@example.com",
+    "phone": "1234567890",
+    "isActive": true,
+    "role": "admin",
+    "penaltyCancellations": 0,
+    "unsubscribeEmail": false,
+    "createdAt": "2026-02-05T13:30:08.162Z",
+    "lastModified": "2026-02-05T13:30:08.163Z",
+    "passwordHash": "$2b$10$hgiY3TslxWam./DBJUO.8.RA06mKtOU.CSChITsdepM461lcyLqRm",
+    "emailVerified": true
+  },
+  {
+    "id": "1738780800001",
+    "memberNumber": "MEM-0006",
+    "firstName": "Nico",
+    "lastName": "Fireball",
+    "email": "nico.fireball@example.com",
+    "phone": "4015559999",
+    "isActive": true,
+    "role": "player",
+    "penaltyCancellations": 0,
+    "unsubscribeEmail": false,
+    "createdAt": "2026-02-05T20:00:00.000Z",
+    "lastModified": "2026-02-05T20:00:00.000Z",
+    "passwordHash": "$2b$10$OJ/zir.dN0tJG3cKj0gsNespEQBI9uzkfhRkWUKo0wr1MbmxQ5UiW",
+    "emailVerified": true
   }
 ]

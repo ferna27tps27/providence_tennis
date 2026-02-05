@@ -6,6 +6,8 @@ import { getJournalEntries, JournalEntry } from "@/lib/api/journal-api";
 import { useAuth } from "@/lib/auth/auth-context";
 import CoachJournalForm from "./CoachJournalForm";
 import JournalEntryCard from "./JournalEntryCard";
+import JournalAnalytics from "./JournalAnalytics";
+import JournalExport from "./JournalExport";
 
 export default function CoachJournalView() {
   const { token, user: member } = useAuth();
@@ -59,6 +61,9 @@ export default function CoachJournalView() {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoad = useRef(true);
+  
+  // Track which view to show
+  const [activeView, setActiveView] = useState<"entries" | "analytics">("entries");
 
   // Update URL params when filters change (debounced for text inputs)
   useEffect(() => {
@@ -168,14 +173,45 @@ export default function CoachJournalView() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Create Button */}
-      <div className="flex justify-end items-center">
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-        >
-          {showForm ? "Cancel" : "+ Create Entry"}
-        </button>
+      {/* Header with View Toggle and Create Button */}
+      <div className="flex justify-between items-center">
+        <div className="inline-flex rounded-lg border border-gray-300 bg-white">
+          <button
+            onClick={() => setActiveView("entries")}
+            className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
+              activeView === "entries"
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            📔 Entries
+          </button>
+          <button
+            onClick={() => setActiveView("analytics")}
+            className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
+              activeView === "analytics"
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            📊 Analytics
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {activeView === "entries" && entries.length > 0 && (
+            <JournalExport entries={entries} userRole={member?.role as "player" | "coach" | "admin"} />
+          )}
+          
+          {activeView === "entries" && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              {showForm ? "Cancel" : "+ Create Entry"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Create Form */}
@@ -192,8 +228,16 @@ export default function CoachJournalView() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Analytics View */}
+      {activeView === "analytics" && (
+        <JournalAnalytics entries={entries} userRole={member?.role as "player" | "coach" | "admin"} />
+      )}
+
+      {/* Entries View */}
+      {activeView === "entries" && (
+        <>
+          {/* Filters */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <button
           onClick={() => setShowFilters(!showFilters)}
           className="w-full px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-colors"
@@ -262,25 +306,44 @@ export default function CoachJournalView() {
         )}
       </div>
 
-      {/* Entries */}
-      {entries.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-500 mb-4">No journal entries found.</p>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              Create Your First Entry
-            </button>
+          {/* Entries */}
+          {entries.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-4">No journal entries found.</p>
+              {!showForm && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Create Your First Entry
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {entries.map((entry) => (
+                <JournalEntryCard 
+                  key={entry.id} 
+                  entry={entry} 
+                  userRole={member?.role as "player" | "coach" | "admin"}
+                  onUpdate={() => {
+                    // Reload entries after reflection is added
+                    if (token) {
+                      getJournalEntries(token, {
+                        ...(debouncedFilters.playerName && { playerName: debouncedFilters.playerName }),
+                        ...(debouncedFilters.startDate && { startDate: debouncedFilters.startDate }),
+                        ...(debouncedFilters.endDate && { endDate: debouncedFilters.endDate }),
+                        ...(debouncedFilters.areaWorkedOn && { areaWorkedOn: debouncedFilters.areaWorkedOn }),
+                      }).then((response) => {
+                        setEntries(response.entries);
+                      });
+                    }
+                  }}
+                />
+              ))}
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {entries.map((entry) => (
-            <JournalEntryCard key={entry.id} entry={entry} userRole={member?.role as "player" | "coach" | "admin"} />
-          ))}
-        </div>
+        </>
       )}
     </div>
   );

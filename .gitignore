@@ -18,6 +18,11 @@
 # misc
 .DS_Store
 *.pem
+*.log
+python_agent.log
+__pycache__/
+*.pyc
+*.pyo
 
 # debug
 npm-debug.log*
@@ -28,6 +33,7 @@ yarn-error.log*
 .env
 .env.local
 .env*.local
+backend/.env
 
 # vercel
 .vercel

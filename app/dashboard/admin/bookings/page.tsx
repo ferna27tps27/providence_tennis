@@ -1,19 +1,21 @@
 "use client";
 
- import { useEffect, useMemo, useState } from "react";
- import { format } from "date-fns";
- import DashboardLayout from "../../../../components/dashboard/DashboardLayout";
- import ProtectedRoute from "../../../../lib/auth/protected-route";
- import { useAuth } from "../../../../lib/auth/auth-context";
- import {
-   AdminReservation,
-   AdminReservationFilters,
-   cancelAdminReservation,
-   getAdminReservations,
-   getCourts,
-   updateAdminReservation,
-   Court,
- } from "../../../../lib/api/admin-booking-api";
+import { useEffect, useMemo, useState } from "react";
+import { format, startOfWeek, addDays } from "date-fns";
+import DashboardLayout from "../../../../components/dashboard/DashboardLayout";
+import ProtectedRoute from "../../../../lib/auth/protected-route";
+import { useAuth } from "../../../../lib/auth/auth-context";
+import {
+  AdminReservation,
+  AdminReservationFilters,
+  cancelAdminReservation,
+  getAdminReservations,
+  getCourts,
+  updateAdminReservation,
+  Court,
+} from "../../../../lib/api/admin-booking-api";
+import BookingCalendarGrid from "../../../../components/admin/BookingCalendarGrid";
+import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
 
  const formatDate = (dateStr: string) => {
    try {
@@ -36,7 +38,7 @@
  };
 
  export default function AdminBookingsPage() {
-   const { token } = useAuth();
+   const { token, user } = useAuth();
    const [reservations, setReservations] = useState<AdminReservation[]>([]);
    const [courts, setCourts] = useState<Court[]>([]);
    const [isLoading, setIsLoading] = useState(true);
@@ -53,9 +55,10 @@
      timeEnd: "",
      notes: "",
    });
-   const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
  
-   const loadReservations = async (activeToken: string) => {
+  const loadReservations = async (activeToken: string) => {
      setIsLoading(true);
      setError("");
      try {
@@ -111,46 +114,60 @@
      }
    };
  
-   const handleSaveEdit = async () => {
-     if (!token || !editingReservation) return;
-     try {
-       setActionLoading(true);
-       const updates: any = {};
-       if (editForm.date && editForm.date !== editingReservation.date) {
-         updates.date = editForm.date;
-       }
-       if (
-         editForm.timeStart &&
-         editForm.timeEnd &&
-         (editForm.timeStart !== editingReservation.timeSlot?.start ||
-           editForm.timeEnd !== editingReservation.timeSlot?.end)
-       ) {
-         updates.timeSlot = {
-           start: editForm.timeStart,
-           end: editForm.timeEnd,
-         };
-       }
-       if (editForm.courtId && editForm.courtId !== editingReservation.courtId) {
-         updates.courtId = editForm.courtId;
-       }
-       if ((editForm.notes ?? "") !== (editingReservation.notes ?? "")) {
-         updates.notes = editForm.notes;
-       }
- 
-       if (Object.keys(updates).length === 0) {
-         setEditingReservation(null);
-         return;
-       }
- 
-       await updateAdminReservation(editingReservation.id, updates, token);
-       setEditingReservation(null);
-       await loadReservations(token);
-     } catch (err: any) {
-       setError(err.message || "Failed to update reservation");
-     } finally {
-       setActionLoading(false);
-     }
-   };
+  const handleSaveEdit = async () => {
+    if (!token || !editingReservation) return;
+    try {
+      setActionLoading(true);
+      const updates: any = {};
+      if (editForm.date && editForm.date !== editingReservation.date) {
+        updates.date = editForm.date;
+      }
+      if (
+        editForm.timeStart &&
+        editForm.timeEnd &&
+        (editForm.timeStart !== editingReservation.timeSlot?.start ||
+          editForm.timeEnd !== editingReservation.timeSlot?.end)
+      ) {
+        updates.timeSlot = {
+          start: editForm.timeStart,
+          end: editForm.timeEnd,
+        };
+      }
+      if (editForm.courtId && editForm.courtId !== editingReservation.courtId) {
+        updates.courtId = editForm.courtId;
+      }
+      if ((editForm.notes ?? "") !== (editingReservation.notes ?? "")) {
+        updates.notes = editForm.notes;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        setEditingReservation(null);
+        return;
+      }
+
+      await updateAdminReservation(editingReservation.id, updates, token);
+      setEditingReservation(null);
+      await loadReservations(token);
+    } catch (err: any) {
+      setError(err.message || "Failed to update reservation");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handler for calendar drag-and-drop updates
+  const handleCalendarUpdate = async (
+    id: string,
+    updates: {
+      date: string;
+      courtId: string;
+      timeSlot: { start: string; end: string };
+    }
+  ) => {
+    if (!token) throw new Error("Not authenticated");
+    await updateAdminReservation(id, updates, token);
+    await loadReservations(token);
+  };
  
    return (
      <ProtectedRoute allowedRoles={["admin"]}>
@@ -253,23 +270,56 @@
              </div>
            </div>
  
-           {error && (
-             <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-               {error}
-             </div>
-           )}
- 
-           {isLoading ? (
-             <div className="text-center py-12">
-               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-               <p className="text-gray-600">Loading bookings...</p>
-             </div>
-           ) : reservations.length === 0 ? (
-             <div className="card text-center py-12">
-               <p className="text-gray-600">No bookings found for these filters.</p>
-             </div>
-           ) : (
-             <div className="card overflow-x-auto">
+          {/* View Toggle */}
+          <div className="flex justify-end">
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  viewMode === "table"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                📋 Table View
+              </button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  viewMode === "calendar"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                📅 Calendar View
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              {error}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading bookings...</p>
+            </div>
+          ) : reservations.length === 0 ? (
+            <div className="card text-center py-12">
+              <p className="text-gray-600">No bookings found for these filters.</p>
+            </div>
+          ) : viewMode === "calendar" ? (
+            <BookingCalendarGrid
+              reservations={reservations}
+              courts={courts}
+              onReservationUpdate={handleCalendarUpdate}
+              isLoading={isLoading}
+            />
+          ) : (
+            <div className="card overflow-x-auto">
                <table className="min-w-full text-sm">
                  <thead>
                    <tr className="text-left text-gray-500 border-b">
@@ -429,9 +479,12 @@
                  </div>
                </div>
              </div>
-           )}
-         </div>
-       </DashboardLayout>
-     </ProtectedRoute>
-   );
- }
+          )}
+        </div>
+      </DashboardLayout>
+
+      {/* AI Assistant - Floating Chat (Admin or Training mode) */}
+      {token && <AdminAIAssistant token={token} userRole={user?.role} />}
+    </ProtectedRoute>
+  );
+}

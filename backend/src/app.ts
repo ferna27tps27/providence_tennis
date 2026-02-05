@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { chatWithAgent, ChatMessage } from "./lib/ai-agent";
+import { chatWithAdminAgent, AdminChatMessage } from "./lib/admin-ai-agent";
 import {
   cancelReservation,
   createReservation,
@@ -83,7 +84,9 @@ import {
   updateJournalEntry,
   deleteJournalEntry,
   canViewJournalEntry,
+  addPlayerReflection,
 } from "./lib/journal";
+import { chatWithTrainingAgent } from "./lib/player-training-agent";
 import { JournalEntryRequest, JournalFilter } from "./types/journal";
 import {
   JournalEntryNotFoundError,
@@ -129,6 +132,86 @@ app.post("/api/chat", async (req, res) => {
     console.error("Error in chat API:", error);
     return res.status(500).json({
       error: error.message || "Failed to process chat message",
+    });
+  }
+});
+
+/**
+ * Admin AI Chat - Natural language booking management (ADMIN ONLY)
+ * POST /api/admin/chat
+ */
+app.post("/api/admin/chat", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body || {};
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const validHistory: AdminChatMessage[] = (Array.isArray(conversationHistory)
+      ? conversationHistory
+      : []
+    )
+      .filter(
+        (msg: any) => msg?.role === "user" || msg?.role === "assistant"
+      )
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content || "",
+      }));
+
+    const member = await getCurrentMember(req.session?.memberId || "");
+    
+    const result = await chatWithAdminAgent(message, validHistory, member.id);
+
+    return res.json({
+      response: result.response,
+      needsConfirmation: result.needsConfirmation || false,
+      conflictInfo: result.conflictInfo,
+    });
+  } catch (error: any) {
+    console.error("Error in admin chat API:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to process admin chat message",
+    });
+  }
+});
+
+/**
+ * Player Training AI Chat - Personalized training recommendations (AUTHENTICATED PLAYERS)
+ * POST /api/training/chat
+ */
+app.post("/api/training/chat", authenticate, async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body || {};
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const validHistory: Array<{ role: string; content: string }> = (Array.isArray(conversationHistory)
+      ? conversationHistory
+      : []
+    )
+      .filter(
+        (msg: any) => msg?.role === "user" || msg?.role === "assistant"
+      )
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content || "",
+      }));
+
+    const member = await getCurrentMember(req.session?.memberId || "");
+    
+    const result = await chatWithTrainingAgent(message, validHistory, member.id);
+
+    return res.json({
+      response: result.response,
+    });
+  } catch (error: any) {
+    console.error("Error in training chat API:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to process training chat message",
     });
   }
 });
@@ -1970,6 +2053,55 @@ app.delete("/api/journal/entries/:id", authenticate, async (req, res) => {
     
     return res.status(500).json({
       error: error.message || "Failed to delete journal entry",
+    });
+  }
+});
+
+/**
+ * Add player reflection to journal entry
+ */
+app.post("/api/journal/entries/:id/reflection", authenticate, async (req, res) => {
+  try {
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const entryId = req.params.id;
+    const { reflection } = req.body;
+
+    if (!reflection || typeof reflection !== "string") {
+      return res.status(400).json({
+        error: "Reflection is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const updatedEntry = await addPlayerReflection(entryId, member.id, reflection);
+
+    // Enrich with player and coach names
+    const player = await getMember(updatedEntry.playerId);
+    const coach = await getMember(updatedEntry.coachId);
+
+    return res.status(200).json({
+      ...updatedEntry,
+      playerName: `${player.firstName} ${player.lastName}`,
+      coachName: `${coach.firstName} ${coach.lastName}`,
+    });
+  } catch (error: any) {
+    console.error("Error adding player reflection:", error);
+    
+    if (error instanceof JournalEntryNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalAuthorizationError) {
+      return res.status(403).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof JournalLockError) {
+      return res.status(503).json({ error: error.message, code: error.code });
+    }
+    
+    return res.status(500).json({
+      error: error.message || "Failed to add player reflection",
     });
   }
 });

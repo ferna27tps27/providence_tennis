@@ -225,7 +225,7 @@ chmod +x start.sh
 
 ## Documentation
 
-All developer docs live in **[docs/](docs/README.md)**:
+All developer docs live in **[docs/](docs/README.md)**. Start there for setup, API, testing, and features.
 
 | Doc | Description |
 |-----|-------------|
@@ -234,8 +234,8 @@ All developer docs live in **[docs/](docs/README.md)**:
 | [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) | How to run tests |
 | [docs/api/API_DOCUMENTATION.md](docs/api/API_DOCUMENTATION.md) | Full API reference |
 | [docs/getting-started/DEVELOPER_ONBOARDING_BOOKINGS.md](docs/getting-started/DEVELOPER_ONBOARDING_BOOKINGS.md) | Onboarding & book-a-court |
-| [AI_AGENT_DOCUMENTATION.md](AI_AGENT_DOCUMENTATION.md) | AI assistant |
-| [docs/templates/](docs/templates/) | `.env` templates |
+| [docs/agents/](docs/agents/README.md) | AI agents (public chat + admin assistant) |
+| [env.sample](env.sample) | Environment variables (copy to `.env.local` and `backend/.env`) |
 
 ## License
 

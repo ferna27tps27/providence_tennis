@@ -4,9 +4,10 @@ import DashboardLayout from "../../../components/dashboard/DashboardLayout";
 import { useAuth } from "../../../lib/auth/auth-context";
 import PlayerJournalView from "../../../components/journal/PlayerJournalView";
 import CoachJournalView from "../../../components/journal/CoachJournalView";
+import AdminAIAssistant from "../../../components/admin/AdminAIAssistant";
 
 export default function JournalPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   if (!user) return null;
 
@@ -28,6 +29,9 @@ export default function JournalPage() {
 
         {isCoach ? <CoachJournalView /> : isPlayer ? <PlayerJournalView /> : null}
       </div>
+      
+      {/* AI Training Assistant - Available for all authenticated users */}
+      {token && <AdminAIAssistant token={token} userRole={user?.role} />}
     </DashboardLayout>
   );
 }

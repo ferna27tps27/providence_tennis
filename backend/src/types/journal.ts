@@ -15,6 +15,7 @@ export interface JournalEntry {
   areasWorkedOn: string[];      // Array of focus areas (e.g., ["backhand", "serve"])
   pointersForNextSession: string; // Coach's notes for next session
   additionalNotes?: string;      // Optional additional notes
+  playerReflection?: string;     // Optional: Player's own notes/reflections
   
   // Metadata
   createdAt: string;             // ISO 8601 timestamp

@@ -15,6 +15,7 @@ export interface JournalEntry {
   areasWorkedOn: string[];
   pointersForNextSession: string;
   additionalNotes?: string;
+  playerReflection?: string;
   createdAt: string;
   lastModified: string;
   createdBy: string;
@@ -176,4 +177,54 @@ export async function deleteJournalEntry(
     const error: ApiError = await response.json();
     throw new Error(error.error || "Failed to delete journal entry");
   }
+}
+
+/**
+ * Get the most recent journal entry for a player
+ */
+export async function getLatestJournalEntryForPlayer(
+  playerId: string,
+  token: string
+): Promise<JournalEntry | null> {
+  try {
+    const response = await getJournalEntries(token, { playerId });
+    if (response.entries.length === 0) return null;
+    
+    // Sort by session date descending to get most recent
+    const sorted = response.entries.sort((a, b) => {
+      const dateA = new Date(a.sessionDate);
+      const dateB = new Date(b.sessionDate);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    return sorted[0];
+  } catch (error) {
+    console.error("Error fetching latest journal entry:", error);
+    return null;
+  }
+}
+
+/**
+ * Add or update player reflection on a journal entry
+ */
+export async function addPlayerReflection(
+  entryId: string,
+  reflection: string,
+  token: string
+): Promise<JournalEntry> {
+  const response = await fetch(`${API_BASE_URL}/api/journal/entries/${entryId}/reflection`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reflection }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "Failed to add player reflection");
+  }
+
+  return response.json();
 }

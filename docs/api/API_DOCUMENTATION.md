@@ -16,6 +16,7 @@
    - [Availability](#availability)
    - [Reservations](#reservations)
    - [Chat](#chat)
+   - [Journal](#journal)
 5. [Data Models](#data-models)
 6. [Error Codes](#error-codes)
 7. [Examples](#examples)
@@ -34,12 +35,13 @@ The Reservation System API provides endpoints for managing tennis court reservat
 - ✅ Time range overlap detection
 - ✅ Concurrency control (file locking)
 - ✅ AI-powered chat assistant
+- ✅ Coaching journals (create, list, filter, update, delete; coach/player roles)
 
 ---
 
 ## Authentication
 
-Currently, the API does not require authentication. This may be added in future versions.
+Most reservation, availability, and chat endpoints do not require authentication. **Journal endpoints** require a valid session: send `Authorization: Bearer <token>` (JWT from sign-in). Create is restricted to `coach` or `admin`; list/get/update/delete are restricted by ownership (coaches see their entries, players see entries about them).
 
 ---
 
@@ -507,6 +509,121 @@ Interacts with the AI assistant for customer support.
 
 ---
 
+### Journal
+
+Coaching journal entries let coaches record session summaries, areas worked on, and pointers for the next session. Players can view entries about themselves. All journal endpoints require authentication (`Authorization: Bearer <token>`).
+
+#### Create Journal Entry
+
+**POST** `/api/journal/entries`
+
+**Auth:** Required. Role: `coach` or `admin`.
+
+**Request Body:**
+
+```json
+{
+  "playerId": "member-uuid",
+  "reservationId": "optional-booking-id",
+  "sessionDate": "2026-02-05",
+  "sessionTime": "10:00",
+  "summary": "Worked on backhand and serve",
+  "areasWorkedOn": ["backhand", "serve"],
+  "pointersForNextSession": "Focus on follow-through; bring spare balls next time.",
+  "additionalNotes": "Optional notes"
+}
+```
+
+**Required:** `playerId`, `sessionDate` (YYYY-MM-DD), `summary`, `areasWorkedOn` (array), `pointersForNextSession`.  
+**Optional:** `reservationId`, `sessionTime` (HH:mm), `additionalNotes`.
+
+**Response:** `201 Created` — returns the created `JournalEntry` (includes `id`, `coachId`, `createdAt`, `lastModified`, etc.).
+
+**Error Responses:** `400` (validation), `403` (not coach/admin), `503` (lock).
+
+---
+
+#### Get Journal Entries (List with Filters)
+
+**GET** `/api/journal/entries`
+
+**Auth:** Required. Players see only their own entries; coaches see their entries (optionally filtered by player); admins see all.
+
+**Query Parameters:**
+
+| Parameter     | Description                          |
+|---------------|--------------------------------------|
+| `playerId`    | Filter by player (coach/admin)       |
+| `playerName`  | Filter by player name (substring)    |
+| `coachId`     | Filter by coach                      |
+| `coachName`   | Filter by coach name (substring)     |
+| `startDate`   | From date (YYYY-MM-DD)              |
+| `endDate`     | To date (YYYY-MM-DD)                |
+| `areaWorkedOn`| Filter by focus area                 |
+
+**Response:** `200 OK`
+
+```json
+{
+  "entries": [
+    {
+      "id": "entry-uuid",
+      "playerId": "member-uuid",
+      "coachId": "coach-uuid",
+      "sessionDate": "2026-02-05",
+      "summary": "Worked on backhand and serve",
+      "areasWorkedOn": ["backhand", "serve"],
+      "pointersForNextSession": "Focus on follow-through.",
+      "createdAt": "2026-02-05T12:00:00.000Z",
+      "lastModified": "2026-02-05T12:00:00.000Z",
+      "coachName": "Jane Coach",
+      "playerName": "John Player"
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+#### Get Journal Entry by ID
+
+**GET** `/api/journal/entries/:id`
+
+**Auth:** Required. Caller must be the coach who wrote the entry or the player the entry is about (or admin).
+
+**Response:** `200 OK` — single `JournalEntry` (with optional `coachName`, `playerName`).
+
+**Error Responses:** `403` (not allowed), `404` (not found).
+
+---
+
+#### Update Journal Entry
+
+**PUT** `/api/journal/entries/:id`
+
+**Auth:** Required. Only the coach who created the entry (or admin) can update.
+
+**Request Body:** Partial `JournalEntryRequest` (e.g. `summary`, `areasWorkedOn`, `pointersForNextSession`, `sessionDate`, `sessionTime`, `additionalNotes`). Only provided fields are updated.
+
+**Response:** `200 OK` — updated `JournalEntry` (with optional `coachName`, `playerName`).
+
+**Error Responses:** `400` (validation), `403` (not owner), `404` (not found), `503` (lock).
+
+---
+
+#### Delete Journal Entry
+
+**DELETE** `/api/journal/entries/:id`
+
+**Auth:** Required. Only the coach who created the entry (or admin) can delete.
+
+**Response:** `204 No Content` on success.
+
+**Error Responses:** `403` (not allowed), `404` (not found), `503` (lock).
+
+---
+
 ## Data Models
 
 ### Reservation
@@ -565,6 +682,43 @@ interface AvailabilityResponse {
 }
 ```
 
+### Journal Entry
+
+```typescript
+interface JournalEntry {
+  id: string;
+  playerId: string;
+  coachId: string;
+  reservationId?: string;
+  sessionDate: string;           // YYYY-MM-DD
+  sessionTime?: string;          // HH:mm
+  summary: string;
+  areasWorkedOn: string[];
+  pointersForNextSession: string;
+  additionalNotes?: string;
+  createdAt: string;            // ISO 8601
+  lastModified: string;         // ISO 8601
+  createdBy: string;
+  coachName?: string;           // Enriched by API
+  playerName?: string;          // Enriched by API
+}
+```
+
+### Journal Entry Request (create/update)
+
+```typescript
+interface JournalEntryRequest {
+  playerId: string;
+  reservationId?: string;
+  sessionDate: string;         // YYYY-MM-DD
+  sessionTime?: string;        // HH:mm
+  summary: string;
+  areasWorkedOn: string[];
+  pointersForNextSession: string;
+  additionalNotes?: string;
+}
+```
+
 ---
 
 ## Error Codes
@@ -574,6 +728,7 @@ interface AvailabilityResponse {
 | `CONFLICT` | Time slot conflict | 409 |
 | `LOCK_ERROR` | Could not acquire file lock | 503 |
 | `NOT_FOUND` | Resource not found | 404 |
+| `UNAUTHORIZED` | Not authorized for this resource (e.g. journal) | 403 |
 | `VALIDATION_ERROR` | Input validation failed | 400 |
 
 ---
@@ -676,4 +831,4 @@ The API uses file-based locking to prevent race conditions when multiple request
 
 ---
 
-**Last Updated:** January 24, 2026
+**Last Updated:** February 5, 2026
