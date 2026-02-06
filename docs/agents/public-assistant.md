@@ -207,16 +207,17 @@ npm install
 ```
 
 2. **Configure Environment Variables**:
-Create a `.env.local` file in the root directory:
+Add the following to `backend/.env`:
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
+GOOGLE_GENAI_MODEL=gemini-3-flash-preview
 ```
 
 3. **Get Google API Key**:
    - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
    - Create a new API key
-   - Copy the key to `.env.local`
+   - Copy the key to `backend/.env`
 
 4. **Start Development Server**:
 ```bash
@@ -227,12 +228,13 @@ npm run dev
 
 The AI Assistant will be available on every page via the floating chat button.
 
-### Environment Variables
+### Environment Variables (in `backend/.env`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GOOGLE_API_KEY` | Yes | Your Google Gemini API key |
 | `GOOGLE_GENAI_USE_VERTEXAI` | No | Set to "true" if using Vertex AI (default: false) |
+| `GOOGLE_GENAI_MODEL` | No | Model name (default: gemini-3-flash-preview) |
 
 ---
 
@@ -455,10 +457,10 @@ candidate.groundingMetadata.groundingChunks.forEach((chunk) => {
 **Symptoms**: 401 Unauthorized error
 
 **Solution**:
-- Verify `GOOGLE_API_KEY` is set in `.env.local`
+- Verify `GOOGLE_API_KEY` is set in `backend/.env`
 - Check the API key is valid in Google AI Studio
-- Ensure `.env.local` is not committed to git (check `.gitignore`)
-- Restart the development server after changing `.env.local`
+- Ensure `backend/.env` is not committed to git (check `.gitignore`)
+- Restart the backend server after changing `backend/.env`
 
 #### 2. "google_search_retrieval is not supported" Error
 
@@ -657,6 +659,6 @@ The AI Agent is a powerful, context-aware assistant that enhances user experienc
 
 For questions or issues, refer to the troubleshooting section or check the server logs for detailed error information.
 
-**Last Updated**: January 2025
+**Last Updated**: February 6, 2026
 **Version**: 1.0.0
 **Maintained By**: Providence Tennis Academy Development Team

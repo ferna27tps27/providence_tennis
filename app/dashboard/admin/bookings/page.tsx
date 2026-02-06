@@ -156,6 +156,7 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
   };
 
   // Handler for calendar drag-and-drop updates
+  // Uses optimistic update so the calendar stays mounted (no isLoading flash)
   const handleCalendarUpdate = async (
     id: string,
     updates: {
@@ -165,8 +166,38 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
     }
   ) => {
     if (!token) throw new Error("Not authenticated");
-    await updateAdminReservation(id, updates, token);
-    await loadReservations(token);
+
+    // Save previous state for rollback on failure
+    const previousReservations = reservations;
+
+    // Optimistic update: move the booking in local state immediately
+    setReservations((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              date: updates.date,
+              courtId: updates.courtId,
+              timeSlot: updates.timeSlot,
+              // Update courtName from the courts list
+              courtName:
+                courts.find((c) => c.id === updates.courtId)?.name ??
+                r.courtName,
+            }
+          : r
+      )
+    );
+
+    try {
+      await updateAdminReservation(id, updates, token);
+      // Silently refresh to get the authoritative server data
+      const data = await getAdminReservations(token, filters);
+      setReservations(data);
+    } catch (err) {
+      // Revert to previous state on failure
+      setReservations(previousReservations);
+      throw err; // Re-throw so BookingCalendarGrid can display the error
+    }
   };
  
    return (
@@ -277,7 +308,7 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
                 onClick={() => setViewMode("table")}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   viewMode === "table"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary-600 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
@@ -287,7 +318,7 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
                 onClick={() => setViewMode("calendar")}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   viewMode === "calendar"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary-600 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >

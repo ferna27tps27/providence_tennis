@@ -50,10 +50,13 @@ npm install
 ```
 
 2. Set up environment variables:
-Create a `.env.local` file in the root directory:
+Create a `backend/.env` file (see `env.sample` for reference):
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
+GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 ```
 
 3. Run the development server:
@@ -120,7 +123,6 @@ providence_tennis/
 │       ├── pt-courts-day.jpeg
 │       ├── pt-courts-sunset.jpeg
 │       └── pt-tennis-and-ball.jpeg
-├── .env.local            # Environment variables (not in git)
 ├── start.sh              # Startup script with port cleanup
 └── package.json          # Dependencies and scripts
 ```
@@ -184,9 +186,12 @@ The application runs on port **3009** by default. This can be changed in:
 - `start.sh` - PORT variable
 
 ### Environment Variables
-Required environment variables in `.env.local`:
+All environment variables are configured in `backend/.env` (single source of truth):
 - `GOOGLE_API_KEY` - Google Generative AI API key (required for AI assistant)
 - `GOOGLE_GENAI_USE_VERTEXAI` - Set to "false" for standard API usage
+- `GOOGLE_GENAI_MODEL` - AI model name (default: gemini-3-flash-preview)
+- `STRIPE_SECRET_KEY` - Stripe secret key (required for payments)
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key (served to frontend via API)
 
 ## Customization
 
@@ -235,7 +240,7 @@ All developer docs live in **[docs/](docs/README.md)**. Start there for setup, A
 | [docs/api/API_DOCUMENTATION.md](docs/api/API_DOCUMENTATION.md) | Full API reference |
 | [docs/getting-started/DEVELOPER_ONBOARDING_BOOKINGS.md](docs/getting-started/DEVELOPER_ONBOARDING_BOOKINGS.md) | Onboarding & book-a-court |
 | [docs/agents/](docs/agents/README.md) | AI agents (public chat + admin assistant) |
-| [env.sample](env.sample) | Environment variables (copy to `.env.local` and `backend/.env`) |
+| [env.sample](env.sample) | Environment variables reference (copy backend section to `backend/.env`) |
 
 ## License
 

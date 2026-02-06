@@ -59,19 +59,20 @@ Successfully implemented a drag-and-drop calendar interface for admins to manage
 1. **Drag Start**: Captures reservation data
 2. **Drag Over**: Shows visual feedback (green/red borders)
 3. **Conflict Check**: Validates before drop
-   - Same date + same time + different reservation = conflict
+   - Same date + same time + **same court** + different reservation = conflict
    - Prevents drop and shows error message
+   - Bookings on different courts at the same time are **not** conflicts
 4. **Drop**: Updates reservation via API
-   - Optimistic UI update
+   - **Optimistic UI update**: Local state is updated immediately so the booking block moves instantly to its new position (the calendar never unmounts)
    - Calls `updateAdminReservation(id, {date, courtId, timeSlot})`
-   - Reloads data on success
-5. **Error Handling**: Rolls back on failure
+   - Silently refreshes data in the background (no loading spinner)
+5. **Error Handling**: Rolls back on failure by restoring the previous reservations state
 
 #### Conflict Prevention
-- **Frontend validation**: Checks before API call
-- **Backend validation**: Existing overlap detection
+- **Frontend validation**: Per-court conflict check before API call
+- **Backend validation**: Existing overlap detection (also per-court)
 - **Visual indicators**: Red borders during drag
-- **Error messages**: "Cannot move: Time slot already booked"
+- **Error messages**: "Cannot move: Time slot already booked on this court"
 
 #### Visual Design
 - **Color-coded courts**: 6 distinct colors for easy identification
@@ -168,7 +169,8 @@ Successfully implemented a drag-and-drop calendar interface for admins to manage
 
 ### Performance
 - Weekly data fetching (not entire calendar)
-- Optimistic updates for instant feedback
+- Optimistic updates for instant feedback (calendar stays mounted during updates)
+- Silent background refresh after PATCH (no loading spinner / no component unmount)
 - Existing caching layer helps
 - Memoized grid rendering
 

@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+backend/node_modules
 /.pnp
 .pnp.js
 
@@ -20,9 +21,11 @@
 *.pem
 *.log
 python_agent.log
+python_agent/
 __pycache__/
 *.pyc
 *.pyo
+*.db
 
 # debug
 npm-debug.log*
@@ -42,8 +45,9 @@ backend/.env
 *.tsbuildinfo
 next-env.d.ts
 
-# data
+# data (contains PII, password hashes, Stripe IDs — never commit)
 /data
+backend/data
 
 # archive audit (contained env/key info; keep local only)
 docs/archive/IMPLEMENTATION_AUDIT_REPORT.md

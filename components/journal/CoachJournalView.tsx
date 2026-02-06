@@ -180,7 +180,7 @@ export default function CoachJournalView() {
             onClick={() => setActiveView("entries")}
             className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
               activeView === "entries"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -190,7 +190,7 @@ export default function CoachJournalView() {
             onClick={() => setActiveView("analytics")}
             className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
               activeView === "analytics"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -206,7 +206,7 @@ export default function CoachJournalView() {
           {activeView === "entries" && (
             <button
               onClick={() => setShowForm(!showForm)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
             >
               {showForm ? "Cancel" : "+ Create Entry"}
             </button>
@@ -313,7 +313,7 @@ export default function CoachJournalView() {
               {!showForm && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
                 >
                   Create Your First Entry
                 </button>

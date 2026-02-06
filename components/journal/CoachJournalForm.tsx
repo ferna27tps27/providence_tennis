@@ -303,7 +303,7 @@ export default function CoachJournalForm({
             }
           }}
           onFocus={() => setShowPlayerDropdown(true)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           placeholder="Search for a player by name, email, or member number..."
           required
         />
@@ -314,7 +314,7 @@ export default function CoachJournalForm({
                 key={player.id}
                 type="button"
                 onClick={() => handlePlayerSelect(player)}
-                className="w-full text-left px-4 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                className="w-full text-left px-4 py-2 hover:bg-primary-50 focus:bg-primary-50 focus:outline-none"
               >
                 <div className="font-medium text-gray-900">
                   {player.firstName} {player.lastName}
@@ -347,7 +347,7 @@ export default function CoachJournalForm({
           id="reservationId"
           value={formData.reservationId}
           onChange={(e) => setFormData({ ...formData, reservationId: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           placeholder="Link to reservation (optional)"
         />
       </div>
@@ -362,7 +362,7 @@ export default function CoachJournalForm({
             id="sessionDate"
             value={formData.sessionDate}
             onChange={(e) => setFormData({ ...formData, sessionDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             required
           />
         </div>
@@ -376,7 +376,7 @@ export default function CoachJournalForm({
             id="sessionTime"
             value={formData.sessionTime}
             onChange={(e) => setFormData({ ...formData, sessionTime: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
       </div>
@@ -389,7 +389,7 @@ export default function CoachJournalForm({
           id="summary"
           value={formData.summary}
           onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={3}
           required
           placeholder="e.g., Worked on backhand and serve today"
@@ -408,7 +408,7 @@ export default function CoachJournalForm({
               onClick={() => toggleArea(area)}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 formData.areasWorkedOn.includes(area)
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary-600 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
             >
@@ -431,7 +431,7 @@ export default function CoachJournalForm({
           id="pointersForNextSession"
           value={formData.pointersForNextSession}
           onChange={(e) => setFormData({ ...formData, pointersForNextSession: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={3}
           required
           placeholder="e.g., Focus on follow-through on backhand. Practice serve placement."
@@ -446,7 +446,7 @@ export default function CoachJournalForm({
           id="additionalNotes"
           value={formData.additionalNotes}
           onChange={(e) => setFormData({ ...formData, additionalNotes: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={2}
           placeholder="Any additional notes about the session"
         />
@@ -456,7 +456,7 @@ export default function CoachJournalForm({
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Creating..." : "Create Entry"}
         </button>

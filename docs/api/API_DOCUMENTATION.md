@@ -1,8 +1,8 @@
 # Reservation System API Documentation
 
-**Version:** 1.0  
-**Date:** January 24, 2026  
-**Base URL:** `http://localhost:3001` (or your configured port)
+**Version:** 1.1  
+**Date:** February 6, 2026  
+**Base URL:** `http://localhost:8080`
 
 ---
 
@@ -15,7 +15,11 @@
    - [Courts](#courts)
    - [Availability](#availability)
    - [Reservations](#reservations)
+   - [Payments](#payments)
+   - [Config](#config)
    - [Chat](#chat)
+   - [Admin Chat](#admin-chat)
+   - [Orchestrator Chat](#orchestrator-chat)
    - [Journal](#journal)
 5. [Data Models](#data-models)
 6. [Error Codes](#error-codes)
@@ -34,7 +38,10 @@ The Reservation System API provides endpoints for managing tennis court reservat
 - ✅ Reservation updates and cancellations
 - ✅ Time range overlap detection
 - ✅ Concurrency control (file locking)
-- ✅ AI-powered chat assistant
+- ✅ Stripe payment integration (PaymentIntent + Payment Element for court bookings)
+- ✅ AI-powered chat assistant (public)
+- ✅ Admin AI booking assistant (natural-language booking management)
+- ✅ Orchestrator AI agent (Ace – training plans, journal analysis, player management)
 - ✅ Coaching journals (create, list, filter, update, delete; coach/player roles)
 
 ---
@@ -448,6 +455,128 @@ Cancels (soft deletes) a reservation by setting status to "cancelled".
 
 ---
 
+### Payments
+
+The payment flow uses Stripe PaymentIntents. Authenticated users pay **$40.00** per court booking. Guest bookings do not require payment.
+
+#### Create Payment Intent
+
+**POST** `/api/payments/create-intent`
+
+**Auth:** Required (any authenticated user).
+
+Creates a Stripe PaymentIntent for a court booking. Call this after the reservation is created but before collecting card details.
+
+**Request Body:**
+
+```json
+{
+  "amount": 40,
+  "reservationId": "reservation-id",
+  "description": "Court booking - Court 1, Feb 10 2026 10:00-11:00"
+}
+```
+
+**Required Fields:**
+- `amount` - Amount in dollars (e.g. `40` for $40.00)
+
+**Optional Fields:**
+- `reservationId` - ID of the associated reservation
+- `description` - Human-readable description of the charge
+
+**Response:** `200 OK`
+
+```json
+{
+  "clientSecret": "pi_xxx_secret_xxx",
+  "paymentIntentId": "pi_xxx"
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Missing amount
+- `401 Unauthorized` - Not authenticated
+- `500 Internal Server Error`
+
+---
+
+#### Confirm Payment
+
+**POST** `/api/payments/confirm`
+
+**Auth:** Required (any authenticated user).
+
+Confirms a payment after the client-side Stripe Payment Element completes. Updates the payment record and links it to the reservation.
+
+**Request Body:**
+
+```json
+{
+  "paymentIntentId": "pi_xxx",
+  "reservationId": "reservation-id"
+}
+```
+
+**Required Fields:**
+- `paymentIntentId` - The Stripe PaymentIntent ID returned from create-intent
+
+**Optional Fields:**
+- `reservationId` - Links the payment to a reservation
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "payment-uuid",
+  "memberId": "member-uuid",
+  "amount": 40,
+  "status": "completed",
+  "stripePaymentIntentId": "pi_xxx",
+  "reservationId": "reservation-id",
+  "createdAt": "2026-02-06T10:00:00.000Z"
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Missing paymentIntentId
+- `401 Unauthorized` - Not authenticated
+- `500 Internal Server Error`
+
+---
+
+### Config
+
+#### Get Stripe Publishable Key
+
+**GET** `/api/config/stripe`
+
+Returns the Stripe publishable key for initializing Stripe.js on the frontend. No authentication required.
+
+**Response:** `200 OK`
+
+```json
+{
+  "publishableKey": "pk_test_..."
+}
+```
+
+**Error Responses:**
+
+- `503 Service Unavailable` - Stripe is not configured (key missing from backend env)
+```json
+{
+  "error": "Stripe is not configured"
+}
+```
+
+**Notes:**
+- The publishable key is stored in `backend/.env` as `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- The frontend fetches this key at runtime via the API (no frontend env file needed)
+
+---
+
 ### Chat
 
 #### Chat with AI Assistant
@@ -506,6 +635,100 @@ Interacts with the AI assistant for customer support.
   "error": "Failed to process chat message"
 }
 ```
+
+---
+
+### Admin Chat
+
+#### Chat with Admin AI Assistant
+
+**POST** `/api/admin/chat`
+
+Admin-only endpoint for natural-language booking management (search, move, cancel, availability, conflict resolution).
+
+**Auth:** Required. Role: `admin`.
+
+**Request Body:**
+
+```json
+{
+  "message": "Move the 10 AM booking on Court 1 to 2 PM",
+  "conversationHistory": [
+    { "role": "user", "content": "Hello" },
+    { "role": "assistant", "content": "Hi! How can I help?" }
+  ]
+}
+```
+
+**Required Fields:**
+- `message` - User's message (string)
+
+**Optional Fields:**
+- `conversationHistory` - Array of previous messages for context
+
+**Response:** `200 OK`
+
+```json
+{
+  "response": "I've moved the booking to 2:00 PM.",
+  "needsConfirmation": false,
+  "conflictInfo": null
+}
+```
+
+**Error Responses:**
+
+- `403 Forbidden` - Non-admin user
+- `500 Internal Server Error`
+
+See [admin-assistant.md](../agents/admin-assistant.md) for tool details and example conversations.
+
+---
+
+### Orchestrator Chat
+
+#### Chat with Orchestrator AI (Ace)
+
+**POST** `/api/orchestrator/chat`
+
+Unified AI assistant for training plans, journal analysis, and player management. Serves all authenticated roles (admin, coach, player).
+
+**Auth:** Required (any authenticated user).
+
+**Request Body:**
+
+```json
+{
+  "message": "Create a training plan for me",
+  "conversationHistory": [
+    { "role": "user", "content": "Hello" },
+    { "role": "assistant", "content": "Hi! I'm Ace..." }
+  ]
+}
+```
+
+**Required Fields:**
+- `message` - User's message (string)
+
+**Optional Fields:**
+- `conversationHistory` - Array of previous messages for context
+
+**Response:** `200 OK`
+
+```json
+{
+  "response": "I've created a personalized training plan..."
+}
+```
+
+**Error Responses:**
+
+- `401 Unauthorized` - Not authenticated
+- `500 Internal Server Error`
+
+**Note:** The legacy endpoint `POST /api/training/chat` still works and delegates to the orchestrator.
+
+See [orchestrator.md](../agents/orchestrator.md) for tool details and example conversations.
 
 ---
 
@@ -682,6 +905,21 @@ interface AvailabilityResponse {
 }
 ```
 
+### Payment
+
+```typescript
+interface Payment {
+  id: string;                           // Auto-generated UUID
+  memberId: string;                     // Member who made the payment
+  amount: number;                       // Amount in dollars
+  status: "pending" | "completed" | "failed" | "refunded";
+  stripePaymentIntentId?: string;       // Stripe PaymentIntent ID
+  reservationId?: string;               // Linked reservation
+  description?: string;                 // Charge description
+  createdAt: string;                    // ISO 8601 timestamp
+}
+```
+
 ### Journal Entry
 
 ```typescript
@@ -738,7 +976,7 @@ interface JournalEntryRequest {
 ### Example: Create a Reservation
 
 ```bash
-curl -X POST http://localhost:3001/api/reservations \
+curl -X POST http://localhost:8080/api/reservations \
   -H "Content-Type: application/json" \
   -d '{
     "courtId": "1",
@@ -757,13 +995,13 @@ curl -X POST http://localhost:3001/api/reservations \
 ### Example: Check Availability
 
 ```bash
-curl http://localhost:3001/api/availability?date=2026-01-24
+curl http://localhost:8080/api/availability?date=2026-01-24
 ```
 
 ### Example: Update Reservation
 
 ```bash
-curl -X PUT http://localhost:3001/api/reservations/1234567890 \
+curl -X PUT http://localhost:8080/api/reservations/1234567890 \
   -H "Content-Type: application/json" \
   -d '{
     "customerName": "Jane Doe",
@@ -774,14 +1012,39 @@ curl -X PUT http://localhost:3001/api/reservations/1234567890 \
 ### Example: Cancel Reservation
 
 ```bash
-curl -X DELETE http://localhost:3001/api/reservations/1234567890
+curl -X DELETE http://localhost:8080/api/reservations/1234567890
+```
+
+### Example: Create Payment Intent
+
+```bash
+curl -X POST http://localhost:8080/api/payments/create-intent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "amount": 40,
+    "reservationId": "1234567890",
+    "description": "Court booking - Court 1"
+  }'
+```
+
+### Example: Confirm Payment
+
+```bash
+curl -X POST http://localhost:8080/api/payments/confirm \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "paymentIntentId": "pi_xxx",
+    "reservationId": "1234567890"
+  }'
 ```
 
 ### Example: JavaScript/TypeScript
 
 ```typescript
 // Create reservation
-const response = await fetch('http://localhost:3001/api/reservations', {
+const response = await fetch('http://localhost:8080/api/reservations', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -803,7 +1066,7 @@ const reservation = await response.json();
 
 // Check availability
 const availabilityResponse = await fetch(
-  'http://localhost:3001/api/availability?date=2026-01-24'
+  'http://localhost:8080/api/availability?date=2026-01-24'
 );
 const availability = await availabilityResponse.json();
 ```
@@ -831,4 +1094,4 @@ The API uses file-based locking to prevent race conditions when multiple request
 
 ---
 
-**Last Updated:** February 5, 2026
+**Last Updated:** February 6, 2026

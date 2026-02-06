@@ -61,7 +61,7 @@ export default function DraggableBookingBlock({
             <span className="text-yellow-700">⏱ Pending</span>
           )}
           {reservation.paymentStatus === "refunded" && (
-            <span className="text-blue-700">↩ Refunded</span>
+            <span className="text-primary-700">↩ Refunded</span>
           )}
         </div>
       )}

@@ -5,9 +5,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { TrainingPlan } from "../../types/training-plan";
-import { acquireFileLock, releaseFileLock } from "../utils/file-lock";
+import { FileLock } from "../utils/file-lock";
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "backend", "data");
+const DATA_DIR = process.env.DATA_DIR
+  ? path.isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : path.join(process.cwd(), process.env.DATA_DIR)
+  : path.join(process.cwd(), "data");
 const TRAINING_PLANS_FILE = path.join(DATA_DIR, "training-plans.json");
 
 /**
@@ -47,13 +51,14 @@ async function writeTrainingPlans(plans: TrainingPlan[]): Promise<void> {
  * Get all training plans for a player
  */
 export async function getPlayerTrainingPlans(playerId: string): Promise<TrainingPlan[]> {
-  const lockHandle = await acquireFileLock(TRAINING_PLANS_FILE);
+  const lock = new FileLock(TRAINING_PLANS_FILE);
+  const release = await lock.acquire();
   try {
     const plans = await readTrainingPlans();
     return plans.filter(plan => plan.playerId === playerId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } finally {
-    await releaseFileLock(lockHandle);
+    await release();
   }
 }
 
@@ -69,12 +74,13 @@ export async function getLatestTrainingPlan(playerId: string): Promise<TrainingP
  * Get training plan by ID
  */
 export async function getTrainingPlanById(id: string): Promise<TrainingPlan | null> {
-  const lockHandle = await acquireFileLock(TRAINING_PLANS_FILE);
+  const lock = new FileLock(TRAINING_PLANS_FILE);
+  const release = await lock.acquire();
   try {
     const plans = await readTrainingPlans();
     return plans.find(plan => plan.id === id) || null;
   } finally {
-    await releaseFileLock(lockHandle);
+    await release();
   }
 }
 
@@ -84,7 +90,8 @@ export async function getTrainingPlanById(id: string): Promise<TrainingPlan | nu
 export async function createTrainingPlan(
   planData: Omit<TrainingPlan, "id" | "createdAt" | "lastModified" | "version" | "sessionCount" | "lastReviewDate">
 ): Promise<TrainingPlan> {
-  const lockHandle = await acquireFileLock(TRAINING_PLANS_FILE);
+  const lock = new FileLock(TRAINING_PLANS_FILE);
+  const release = await lock.acquire();
   try {
     const plans = await readTrainingPlans();
     const now = new Date().toISOString();
@@ -104,7 +111,7 @@ export async function createTrainingPlan(
     
     return newPlan;
   } finally {
-    await releaseFileLock(lockHandle);
+    await release();
   }
 }
 
@@ -115,7 +122,8 @@ export async function updateTrainingPlan(
   id: string,
   updates: Partial<Omit<TrainingPlan, "id" | "playerId" | "createdAt" | "createdBy">>
 ): Promise<TrainingPlan> {
-  const lockHandle = await acquireFileLock(TRAINING_PLANS_FILE);
+  const lock = new FileLock(TRAINING_PLANS_FILE);
+  const release = await lock.acquire();
   try {
     const plans = await readTrainingPlans();
     const index = plans.findIndex(plan => plan.id === id);
@@ -136,7 +144,7 @@ export async function updateTrainingPlan(
     
     return updatedPlan;
   } finally {
-    await releaseFileLock(lockHandle);
+    await release();
   }
 }
 
@@ -144,7 +152,8 @@ export async function updateTrainingPlan(
  * Delete a training plan
  */
 export async function deleteTrainingPlan(id: string): Promise<boolean> {
-  const lockHandle = await acquireFileLock(TRAINING_PLANS_FILE);
+  const lock = new FileLock(TRAINING_PLANS_FILE);
+  const release = await lock.acquire();
   try {
     const plans = await readTrainingPlans();
     const filteredPlans = plans.filter(plan => plan.id !== id);
@@ -156,6 +165,6 @@ export async function deleteTrainingPlan(id: string): Promise<boolean> {
     await writeTrainingPlans(filteredPlans);
     return true;
   } finally {
-    await releaseFileLock(lockHandle);
+    await release();
   }
 }

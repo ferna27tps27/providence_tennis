@@ -6,6 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, addDays, startOfDay, startOfWeek, isAfter, isSameDay } from "date-fns";
 import { ReservationRequest } from "@/types/reservation";
 import { useAuth } from "../lib/auth/auth-context";
+import { createPaymentIntent, confirmPaymentOnServer } from "../lib/api/payment-api";
+import StripePaymentForm from "./StripePaymentForm";
+
+const COURT_BOOKING_PRICE = 40; // $40 per hour
 
 export interface CourtReservationPrefill {
   customerName?: string;
@@ -70,12 +74,15 @@ export default function CourtReservation({
   } | null>(null);
   const [availability, setAvailability] = useState<AvailabilityData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"date" | "court" | "details" | "confirmation">("date");
+  const [step, setStep] = useState<"date" | "court" | "details" | "payment" | "confirmation">("date");
   const [reservationData, setReservationData] = useState<ReservationRequest>(
     () => defaultReservationData(prefill)
   );
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [error, setError] = useState<{ message: string; type: "error" | "warning" | "info" } | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [paymentComplete, setPaymentComplete] = useState(false);
 
   // Sync prefill when it changes (e.g. user loads after mount)
   useEffect(() => {
@@ -157,68 +164,76 @@ export default function CourtReservation({
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * Create the reservation on the backend.
+   * Returns the reservation id on success, or null on failure (sets error state).
+   */
+  const createReservationOnServer = async (): Promise<string | null> => {
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(buildApiUrl("/api/reservations"), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(reservationData),
+    });
+
+    if (response.ok) {
+      const reservation = await response.json();
+      setReservationId(reservation.id);
+      return reservation.id;
+    }
+
+    const errorData: ApiError = await response.json();
+
+    if (response.status === 409) {
+      setError({
+        message: errorData.error || "This time slot is no longer available. Please select another time.",
+        type: "warning",
+      });
+      await fetchAvailability();
+      setStep("court");
+    } else if (response.status === 503) {
+      setError({
+        message: "The system is busy. Please wait a moment and try again.",
+        type: "warning",
+      });
+    } else if (response.status === 404) {
+      setError({
+        message: errorData.error || "The selected court is no longer available.",
+        type: "error",
+      });
+      setStep("court");
+    } else if (response.status === 400) {
+      setError({
+        message: errorData.error || "Please check your information and try again.",
+        type: "error",
+      });
+    } else {
+      setError({
+        message: errorData.error || "Failed to create reservation. Please try again.",
+        type: "error",
+      });
+    }
+
+    return null;
+  };
+
+  /**
+   * Guest flow: Submit form → create reservation → confirmation
+   */
+  const handleGuestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(buildApiUrl("/api/reservations"), {
-        method: "POST",
-        headers,
-        body: JSON.stringify(reservationData),
-      });
-
-      if (response.ok) {
-        const reservation = await response.json();
-        setReservationId(reservation.id);
+      const resId = await createReservationOnServer();
+      if (resId) {
         setStep("confirmation");
         setError(null);
-      } else {
-        const errorData: ApiError = await response.json();
-        
-        // Handle specific error codes
-        if (response.status === 409) {
-          // Conflict - time slot already reserved
-          setError({
-            message: errorData.error || "This time slot is no longer available. Please select another time.",
-            type: "warning",
-          });
-          // Refresh availability to show updated slots
-          await fetchAvailability();
-          // Go back to court selection so user can pick a different time
-          setStep("court");
-        } else if (response.status === 503) {
-          // Service unavailable - lock timeout
-          setError({
-            message: "The system is busy. Please wait a moment and try again.",
-            type: "warning",
-          });
-        } else if (response.status === 404) {
-          // Court not found
-          setError({
-            message: errorData.error || "The selected court is no longer available.",
-            type: "error",
-          });
-          setStep("court");
-        } else if (response.status === 400) {
-          // Validation error
-          setError({
-            message: errorData.error || "Please check your information and try again.",
-            type: "error",
-          });
-        } else {
-          // Other errors
-          setError({
-            message: errorData.error || "Failed to create reservation. Please try again.",
-            type: "error",
-          });
-        }
       }
     } catch (error) {
       console.error("Error creating reservation:", error);
@@ -230,6 +245,86 @@ export default function CourtReservation({
       setLoading(false);
     }
   };
+
+  /**
+   * Authenticated flow: Submit form → create reservation → create payment intent → show payment step
+   */
+  const handleAuthenticatedSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Step 1: Create reservation to lock the time slot
+      const resId = await createReservationOnServer();
+      if (!resId) {
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Create payment intent
+      const courtName = selectedCourtData?.courtName || "Court";
+      const dateStr = format(selectedDate, "MMM d, yyyy");
+      const timeStr = `${selectedTimeSlot?.start} - ${selectedTimeSlot?.end}`;
+      const description = `${courtName} booking on ${dateStr} at ${timeStr}`;
+
+      const intent = await createPaymentIntent(token!, {
+        amount: COURT_BOOKING_PRICE,
+        reservationId: resId,
+        description,
+      });
+
+      setClientSecret(intent.clientSecret);
+      setPaymentIntentId(intent.paymentIntentId);
+      setStep("payment");
+      setError(null);
+    } catch (error: any) {
+      console.error("Error setting up payment:", error);
+      setError({
+        message: error.message || "Failed to set up payment. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Called when Stripe payment succeeds on the client side
+   */
+  const handlePaymentSuccess = async (stripePaymentIntentId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Sync/confirm payment on our backend
+      await confirmPaymentOnServer(token!, {
+        paymentIntentId: stripePaymentIntentId,
+        reservationId: reservationId || undefined,
+      });
+
+      setPaymentComplete(true);
+      setStep("confirmation");
+      setError(null);
+    } catch (error: any) {
+      console.error("Error confirming payment:", error);
+      // Payment succeeded on Stripe but failed to sync -- still show confirmation
+      // since the money was collected and the reservation exists
+      setPaymentComplete(true);
+      setStep("confirmation");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentError = (message: string) => {
+    setError({
+      message: message || "Payment failed. Please try again.",
+      type: "error",
+    });
+  };
+
+  const handleSubmit = user ? handleAuthenticatedSubmit : handleGuestSubmit;
 
   const selectedCourtData = availability?.availability.find(
     (a) => a.courtId === selectedCourt
@@ -267,8 +362,10 @@ export default function CourtReservation({
         {/* Progress Indicator */}
         <div className="mb-8 max-w-3xl mx-auto">
           <div className="flex items-center justify-between">
-            {["Date", "Court", "Details", "Confirm"].map((label, index) => {
-              const steps = ["date", "court", "details", "confirmation"];
+            {(user ? ["Date", "Court", "Details", "Payment", "Confirm"] : ["Date", "Court", "Details", "Confirm"]).map((label, index) => {
+              const steps = user
+                ? ["date", "court", "details", "payment", "confirmation"]
+                : ["date", "court", "details", "confirmation"];
               const currentStepIndex = steps.indexOf(step);
               const isActive = index === currentStepIndex;
               const isCompleted = index < currentStepIndex;
@@ -295,7 +392,7 @@ export default function CourtReservation({
                       {label}
                     </span>
                   </div>
-                  {index < 3 && (
+                  {index < (user ? 4 : 3) && (
                     <div
                       className={`h-1 flex-1 mx-2 transition-all ${
                         isCompleted ? "bg-primary-600" : "bg-gray-300"
@@ -319,7 +416,7 @@ export default function CourtReservation({
                 ? "bg-red-50 border-2 border-red-200 text-red-800"
                 : error.type === "warning"
                 ? "bg-yellow-50 border-2 border-yellow-200 text-yellow-800"
-                : "bg-blue-50 border-2 border-blue-200 text-blue-800"
+                : "bg-primary-50 border-2 border-primary-200 text-primary-800"
             }`}
           >
             <div className="flex items-start">
@@ -333,7 +430,7 @@ export default function CourtReservation({
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 ) : (
-                  <svg className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-primary-600" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 )}
@@ -548,12 +645,24 @@ export default function CourtReservation({
                       {selectedTimeSlot?.start} - {selectedTimeSlot?.end}
                     </p>
                   </div>
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Pricing &amp; policy:</span>{" "}
-                      Payment and cancellation policy apply. Contact the front desk or check your membership for current rates.
-                    </p>
-                  </div>
+                  {user ? (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Court Booking - 1 Hour</span>
+                        <span className="text-lg font-bold text-primary-700">${COURT_BOOKING_PRICE.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        You will be taken to a secure payment page after filling in your details.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">Pricing &amp; policy:</span>{" "}
+                        Payment and cancellation policy apply. Contact the front desk or check your membership for current rates.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -645,14 +754,66 @@ export default function CourtReservation({
                       disabled={loading}
                       className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Processing..." : "Confirm Reservation"}
+                      {loading
+                        ? "Processing..."
+                        : user
+                        ? `Continue to Payment ($${COURT_BOOKING_PRICE.toFixed(2)})`
+                        : "Confirm Reservation"}
                     </button>
                   </div>
                 </form>
               </motion.div>
             )}
 
-            {/* Step 4: Confirmation */}
+            {/* Step 4: Payment (logged-in users only) */}
+            {step === "payment" && clientSecret && (
+              <motion.div
+                key="payment"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="card bg-white"
+              >
+                <div className="mb-6">
+                  <button
+                    onClick={() => setStep("details")}
+                    className="text-primary-600 hover:text-primary-700 font-medium mb-4 inline-flex items-center"
+                  >
+                    ← Back to Details
+                  </button>
+                  <h3 className="text-2xl font-bold">Payment</h3>
+                  <div className="mt-4 p-4 bg-primary-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Date:</span>{" "}
+                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Court:</span>{" "}
+                      {selectedCourtData?.courtName}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Time:</span>{" "}
+                      {selectedTimeSlot?.start} - {selectedTimeSlot?.end}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Name:</span>{" "}
+                      {reservationData.customerName}
+                    </p>
+                  </div>
+                </div>
+
+                <StripePaymentForm
+                  clientSecret={clientSecret}
+                  amount={COURT_BOOKING_PRICE}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  onBack={() => setStep("details")}
+                  loading={loading}
+                />
+              </motion.div>
+            )}
+
+            {/* Step 5 (or 4 for guests): Confirmation */}
             {step === "confirmation" && (
               <motion.div
                 key="confirmation"
@@ -662,10 +823,12 @@ export default function CourtReservation({
               >
                 <div className="text-6xl mb-4">✅</div>
                 <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                  Reservation Confirmed!
+                  {paymentComplete ? "Booking & Payment Confirmed!" : "Reservation Confirmed!"}
                 </h3>
                 <p className="text-lg text-gray-600 mb-6">
-                  Your court reservation has been successfully booked.
+                  {paymentComplete
+                    ? "Your court has been booked and payment has been processed successfully."
+                    : "Your court reservation has been successfully booked."}
                 </p>
                 <div className="bg-white rounded-lg p-6 mb-6 text-left max-w-md mx-auto">
                   <p className="text-sm text-gray-600 mb-2">
@@ -684,6 +847,13 @@ export default function CourtReservation({
                     <span className="font-semibold">Time:</span>{" "}
                     {selectedTimeSlot?.start} - {selectedTimeSlot?.end}
                   </p>
+                  {paymentComplete && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-sm text-green-700 font-semibold">
+                        Payment: ${COURT_BOOKING_PRICE.toFixed(2)} paid
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
                   A confirmation email has been sent to {reservationData.customerEmail}
@@ -713,6 +883,9 @@ export default function CourtReservation({
                       setSelectedTimeSlot(null);
                       setReservationData(defaultReservationData(prefill));
                       setReservationId(null);
+                      setClientSecret(null);
+                      setPaymentIntentId(null);
+                      setPaymentComplete(false);
                     }}
                     className={isDashboard ? "btn-secondary text-center" : "btn-primary"}
                   >

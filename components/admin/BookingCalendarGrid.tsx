@@ -29,12 +29,12 @@ const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
 
 // Court colors for visual distinction
 const COURT_COLORS = [
-  "bg-blue-100 border-blue-300 text-blue-900",
+  "bg-primary-100 border-primary-300 text-primary-900",
   "bg-green-100 border-green-300 text-green-900",
   "bg-purple-100 border-purple-300 text-purple-900",
   "bg-orange-100 border-orange-300 text-orange-900",
   "bg-pink-100 border-pink-300 text-pink-900",
-  "bg-teal-100 border-teal-300 text-teal-900",
+  "bg-cyan-100 border-cyan-300 text-cyan-900",
 ];
 
 export default function BookingCalendarGrid({
@@ -80,16 +80,18 @@ export default function BookingCalendarGrid({
     });
   };
 
-  // Check if slot would have conflict for a given reservation
+  // Check if slot would have conflict for a given reservation (per court)
   const wouldHaveConflict = (
     date: string,
     timeSlot: { start: string; end: string },
+    courtId: string,
     movingReservationId: string
   ): boolean => {
     return reservations.some((res) => {
       if (res.id === movingReservationId) return false; // Don't conflict with self
       if (res.status === "cancelled") return false;
       if (res.date !== date) return false;
+      if (res.courtId !== courtId) return false; // Only conflict on the same court
       // Check if time slots match (for hourly slots)
       return res.timeSlot.start === timeSlot.start;
     });
@@ -123,9 +125,9 @@ export default function BookingCalendarGrid({
       return; // No change
     }
 
-    // Check for conflicts
-    if (wouldHaveConflict(targetData.date, targetData.timeSlot, reservation.id)) {
-      setError("Cannot move: Time slot already booked");
+    // Check for conflicts on the same court
+    if (wouldHaveConflict(targetData.date, targetData.timeSlot, reservation.courtId, reservation.id)) {
+      setError("Cannot move: Time slot already booked on this court");
       setTimeout(() => setError(""), 5000);
       return;
     }
@@ -159,7 +161,7 @@ export default function BookingCalendarGrid({
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg border border-gray-200">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading calendar...</p>
         </div>
       </div>
@@ -200,7 +202,7 @@ export default function BookingCalendarGrid({
         )}
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4">
         <div className="flex items-center justify-between">
           <button
             onClick={handlePreviousWeek}
@@ -275,7 +277,7 @@ export default function BookingCalendarGrid({
                     const dateStr = format(day, "yyyy-MM-dd");
                     const slotReservations = getReservationsForSlot(day, timeSlot);
                     const hasConflict = activeReservation
-                      ? wouldHaveConflict(dateStr, timeSlot, activeReservation.id)
+                      ? wouldHaveConflict(dateStr, timeSlot, activeReservation.courtId, activeReservation.id)
                       : false;
                     
                     return (

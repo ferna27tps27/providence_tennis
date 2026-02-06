@@ -87,6 +87,7 @@ import {
   addPlayerReflection,
 } from "./lib/journal";
 import { chatWithTrainingAgent } from "./lib/player-training-agent";
+import { chatWithOrchestrator } from "./lib/orchestrator-agent";
 import { JournalEntryRequest, JournalFilter } from "./types/journal";
 import {
   JournalEntryNotFoundError,
@@ -180,6 +181,8 @@ app.post("/api/admin/chat", authenticate, requireRole("admin"), async (req, res)
 /**
  * Player Training AI Chat - Personalized training recommendations (AUTHENTICATED PLAYERS)
  * POST /api/training/chat
+ * 
+ * Legacy endpoint - delegates to the orchestrator
  */
 app.post("/api/training/chat", authenticate, async (req, res) => {
   try {
@@ -202,8 +205,15 @@ app.post("/api/training/chat", authenticate, async (req, res) => {
       }));
 
     const member = await getCurrentMember(req.session?.memberId || "");
+    const memberRole = normalizeRole(member.role);
     
-    const result = await chatWithTrainingAgent(message, validHistory, member.id);
+    const result = await chatWithOrchestrator({
+      message,
+      conversationHistory: validHistory,
+      userId: member.id,
+      userRole: memberRole,
+      userName: `${member.firstName} ${member.lastName}`,
+    });
 
     return res.json({
       response: result.response,
@@ -212,6 +222,57 @@ app.post("/api/training/chat", authenticate, async (req, res) => {
     console.error("Error in training chat API:", error);
     return res.status(500).json({
       error: error.message || "Failed to process training chat message",
+    });
+  }
+});
+
+/**
+ * Orchestrator AI Chat - Unified AI assistant for all authenticated users
+ * POST /api/orchestrator/chat
+ * 
+ * This is the main AI chat endpoint that serves as an orchestrator.
+ * - Players: get personalized training advice and plans
+ * - Coaches: manage player training plans and view analytics
+ * - Admins: all of the above plus player creation and management
+ */
+app.post("/api/orchestrator/chat", authenticate, async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body || {};
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const validHistory: Array<{ role: string; content: string }> = (Array.isArray(conversationHistory)
+      ? conversationHistory
+      : []
+    )
+      .filter(
+        (msg: any) => msg?.role === "user" || msg?.role === "assistant"
+      )
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content || "",
+      }));
+
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const memberRole = normalizeRole(member.role);
+    
+    const result = await chatWithOrchestrator({
+      message,
+      conversationHistory: validHistory,
+      userId: member.id,
+      userRole: memberRole,
+      userName: `${member.firstName} ${member.lastName}`,
+    });
+
+    return res.json({
+      response: result.response,
+    });
+  } catch (error: any) {
+    console.error("Error in orchestrator chat API:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to process chat message",
     });
   }
 });
@@ -2104,6 +2165,21 @@ app.post("/api/journal/entries/:id/reflection", authenticate, async (req, res) =
       error: error.message || "Failed to add player reflection",
     });
   }
+});
+
+/**
+ * GET /api/config/stripe
+ * Returns the Stripe publishable key for the frontend.
+ * This is safe to expose publicly (it's the publishable key, not the secret).
+ */
+app.get("/api/config/stripe", (_req, res) => {
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+  if (!publishableKey) {
+    return res.status(503).json({
+      error: "Stripe is not configured",
+    });
+  }
+  return res.json({ publishableKey });
 });
 
 export default app;

@@ -91,7 +91,7 @@ export default function PaymentsPage() {
               className="card"
             >
               <div className="text-sm text-gray-600 mb-1">Total Refunded</div>
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary-600">
                 ${(totalRefunded / 100).toFixed(2)}
               </div>
             </motion.div>

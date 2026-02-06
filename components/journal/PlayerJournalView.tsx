@@ -149,7 +149,7 @@ export default function PlayerJournalView() {
             onClick={() => setActiveView("entries")}
             className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
               activeView === "entries"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -159,7 +159,7 @@ export default function PlayerJournalView() {
             onClick={() => setActiveView("analytics")}
             className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
               activeView === "analytics"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >

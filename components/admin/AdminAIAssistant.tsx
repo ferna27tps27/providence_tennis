@@ -14,38 +14,81 @@ interface Message {
   };
 }
 
+type ChatMode = "training" | "booking";
+
 interface AdminAIAssistantProps {
   token: string;
   userRole?: string;
 }
 
-const getWelcomeMessage = (role?: string) => {
-  const isAdmin = role === "admin";
-  
-  if (isAdmin) {
-    return "Hi! I'm your Admin AI Assistant. I can help you manage bookings with natural language. Try saying:\n\n" +
-      "• 'Show me all bookings for today'\n" +
-      "• 'Move the 10 AM booking on Court 1 to tomorrow at 2 PM'\n" +
-      "• 'Cancel the reservation for John Smith'\n" +
-      "• 'Is Court 3 available on Monday at 3 PM?'\n\n" +
+const getWelcomeMessage = (role?: string, mode?: ChatMode) => {
+  if (mode === "booking" && role === "admin") {
+    return "Hi! I'm your **Admin Booking Assistant**. I can help you manage court reservations. Try saying:\n\n" +
+      "- \"Show me all bookings for today\"\n" +
+      "- \"Move the 10 AM booking on Court 1 to tomorrow at 2 PM\"\n" +
+      "- \"Cancel the reservation for John Smith\"\n" +
+      "- \"Is Court 3 available on Monday at 3 PM?\"\n\n" +
       "I'll warn you about conflicts and always ask before making changes!";
   }
-  
-  return "Hi! I'm your Tennis Training AI Coach! 🎾 I'm here to help you improve your game by analyzing your training sessions and creating personalized practice plans.\n\n" +
-    "Try asking me:\n" +
-    "• 'What should I be working on?'\n" +
-    "• 'Analyze my progress'\n" +
-    "• 'What are my strengths and weaknesses?'\n" +
-    "• 'Create a training plan for me'\n\n" +
-    "I'll look at your journal entries and provide data-driven recommendations!";
+
+  if (role === "admin") {
+    return "Hi! I'm **Ace**, your AI Tennis Coach & Assistant! I'm here to help you manage players and create personalized training plans.\n\n" +
+      "**Try asking me:**\n" +
+      "- \"Create a training plan for Jose\"\n" +
+      "- \"How is Maria doing with her backhand?\"\n" +
+      "- \"Add a new player named Alex Johnson\"\n" +
+      "- \"Show me all players\"\n" +
+      "- \"What should Jose work on next?\"\n\n" +
+      "I'll analyze journal entries and create data-driven plans that are automatically logged!";
+  }
+
+  if (role === "coach") {
+    return "Hi! I'm **Ace**, your AI Tennis Coach Assistant! I can help you create training plans for your players.\n\n" +
+      "**Try asking me:**\n" +
+      "- \"Create a training plan for [player name]\"\n" +
+      "- \"How is [player name] progressing?\"\n" +
+      "- \"What should [player name] focus on?\"\n" +
+      "- \"Analyze [player name]'s recent sessions\"\n\n" +
+      "I'll analyze journal entries and create data-driven plans!";
+  }
+
+  return "Hi! I'm **Ace**, your AI Tennis Coach! I'm here to help you improve your game with personalized training plans and advice.\n\n" +
+    "**Try asking me:**\n" +
+    "- \"What should I be working on?\"\n" +
+    "- \"Create a training plan for me\"\n" +
+    "- \"How am I progressing?\"\n" +
+    "- \"What did my coach say about my last session?\"\n" +
+    "- \"What are my strengths and weaknesses?\"\n\n" +
+    "I'll analyze your journal entries and give you data-driven recommendations!";
+};
+
+const getPlaceholder = (role?: string, mode?: ChatMode) => {
+  if (mode === "booking") return "Ask me to manage bookings...";
+  if (role === "admin") return "e.g., \"Create a plan for Jose\" or \"Add new player\"...";
+  if (role === "coach") return "e.g., \"Create a plan for [player]\"...";
+  return "e.g., \"Create a plan for me\" or \"What should I work on?\"...";
+};
+
+const getHeaderTitle = (role?: string, mode?: ChatMode) => {
+  if (mode === "booking") return "Booking Assistant";
+  return "Ace - Tennis Coach AI";
+};
+
+const getHeaderSubtitle = (role?: string, mode?: ChatMode) => {
+  if (mode === "booking") return "Natural Language Booking Management";
+  if (role === "admin") return "Training Plans & Player Management";
+  if (role === "coach") return "Training Plans & Player Analytics";
+  return "Your Personal Training Coach";
 };
 
 export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantProps) {
+  const isAdmin = userRole === "admin";
+  const [chatMode, setChatMode] = useState<ChatMode>("training");
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: getWelcomeMessage(userRole),
+      content: getWelcomeMessage(userRole, "training"),
     },
   ]);
   const [input, setInput] = useState("");
@@ -67,6 +110,17 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
     }
   }, [isOpen]);
 
+  // Reset messages when mode changes
+  const handleModeSwitch = (newMode: ChatMode) => {
+    setChatMode(newMode);
+    setMessages([
+      {
+        role: "assistant",
+        content: getWelcomeMessage(userRole, newMode),
+      },
+    ]);
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -81,9 +135,13 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
         content: msg.content,
       }));
 
-      const isAdmin = userRole === "admin";
-      const endpoint = isAdmin ? "/api/admin/chat" : "/api/training/chat";
-      const errorPrefix = isAdmin ? "Admin AI" : "Training AI";
+      // Route to appropriate endpoint
+      let endpoint: string;
+      if (chatMode === "booking" && isAdmin) {
+        endpoint = "/api/admin/chat";
+      } else {
+        endpoint = "/api/orchestrator/chat";
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"}${endpoint}`,
@@ -101,7 +159,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to get response from ${errorPrefix}`);
+        throw new Error("Failed to get response from AI");
       }
 
       const data = await response.json();
@@ -120,7 +178,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again or use the manual booking interface.",
+          content: "Sorry, I encountered an error. Please try again.",
         },
       ]);
     } finally {
@@ -135,6 +193,32 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
     }
   };
 
+  // Quick suggestion chips
+  const getQuickActions = () => {
+    if (chatMode === "booking") {
+      return [
+        "Show today's bookings",
+        "Check Court 1 availability",
+      ];
+    }
+    if (userRole === "admin") {
+      return [
+        "Show all players",
+        "Create a training plan",
+      ];
+    }
+    if (userRole === "coach") {
+      return [
+        "Analyze my player",
+        "Create a training plan",
+      ];
+    }
+    return [
+      "What should I work on?",
+      "Create a plan for me",
+    ];
+  };
+
   return (
     <>
       {/* Toggle Button */}
@@ -143,11 +227,11 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
         className={`fixed bottom-6 right-6 z-40 rounded-full p-4 shadow-lg transition-colors ${
           isOpen
             ? "bg-red-600 hover:bg-red-700"
-            : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            : "bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600"
         } text-white`}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        title={isOpen ? "Close Admin AI" : "Open Admin AI Assistant"}
+        title={isOpen ? "Close AI Coach" : "Open AI Tennis Coach"}
       >
         {isOpen ? (
           <svg
@@ -195,32 +279,64 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
             className="fixed bottom-24 right-6 w-[450px] h-[650px] bg-white rounded-2xl shadow-2xl z-40 flex flex-col border border-gray-200"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-t-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <div>
-                  <h3 className="font-semibold text-lg">Admin AI Assistant</h3>
-                  <p className="text-xs opacity-90">Natural Language Booking Management</p>
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary-300 rounded-full animate-pulse"></div>
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {getHeaderTitle(userRole, chatMode)}
+                    </h3>
+                    <p className="text-xs opacity-90">
+                      {getHeaderSubtitle(userRole, chatMode)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="hover:bg-white/20 rounded-full p-1 transition"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="hover:bg-white/20 rounded-full p-1 transition"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Mode Toggle for Admin */}
+              {isAdmin && (
+                <div className="mt-3 flex bg-white/15 rounded-lg p-0.5">
+                  <button
+                    onClick={() => handleModeSwitch("training")}
+                    className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
+                      chatMode === "training"
+                        ? "bg-white text-primary-700 shadow-sm"
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    Training Coach
+                  </button>
+                  <button
+                    onClick={() => handleModeSwitch("booking")}
+                    className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
+                      chatMode === "booking"
+                        ? "bg-white text-primary-700 shadow-sm"
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    Booking Manager
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Messages */}
@@ -237,7 +353,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                       message.role === "user"
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                        ? "bg-gradient-to-r from-primary-600 to-primary-500 text-white"
                         : message.conflictInfo?.hasConflict
                         ? "bg-yellow-50 border-2 border-yellow-400 text-gray-800"
                         : "bg-white border border-gray-200 text-gray-800"
@@ -245,7 +361,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                   >
                     {message.conflictInfo?.hasConflict && (
                       <div className="mb-2 flex items-start gap-2">
-                        <span className="text-yellow-600 text-xl">⚠️</span>
+                        <span className="text-yellow-600 text-xl">&#9888;</span>
                         <span className="font-semibold text-yellow-800">Conflict Detected</span>
                       </div>
                     )}
@@ -299,23 +415,47 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                 >
                   <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-2">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce"></div>
                       <div
-                        className="w-2 h-2 bg-purple-600 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-primary-500 rounded-full animate-bounce"
                         style={{ animationDelay: "0.1s" }}
                       ></div>
                       <div
-                        className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-primary-600 rounded-full animate-bounce"
                         style={{ animationDelay: "0.2s" }}
                       ></div>
                     </div>
-                    <span className="text-sm text-gray-600">Thinking...</span>
+                    <span className="text-sm text-gray-600">
+                      {chatMode === "booking" ? "Processing..." : "Analyzing..."}
+                    </span>
                   </div>
                 </motion.div>
               )}
 
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Quick Action Chips */}
+            {messages.length <= 1 && !isLoading && (
+              <div className="px-4 pb-2 flex flex-wrap gap-2">
+                {getQuickActions().map((action) => (
+                  <button
+                    key={action}
+                    onClick={() => {
+                      setInput(action);
+                      // Auto-send after a brief moment
+                      setTimeout(() => {
+                        const fakeEvent = { key: "Enter", shiftKey: false, preventDefault: () => {} };
+                        // We'll just set input and let user click send, or we handle it differently
+                      }, 100);
+                    }}
+                    className="text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-full px-3 py-1.5 hover:bg-primary-100 transition-colors"
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Input */}
             <div className="p-4 border-t border-gray-200 bg-white rounded-b-2xl">
@@ -326,14 +466,14 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder="Ask me to manage bookings..."
-                  className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={getPlaceholder(userRole, chatMode)}
+                  className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   disabled={isLoading}
                 />
                 <button
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl px-4 py-2 hover:from-blue-700 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl px-4 py-2 hover:from-primary-700 hover:to-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <svg
                     className="w-5 h-5"
@@ -351,7 +491,9 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                💡 Tip: Be specific with dates, times, and names
+                {chatMode === "booking"
+                  ? "Tip: Be specific with dates, times, and court names"
+                  : "Tip: Ask me to create plans, analyze progress, or give training advice"}
               </p>
             </div>
           </motion.div>

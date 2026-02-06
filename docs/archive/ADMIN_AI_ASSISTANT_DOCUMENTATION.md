@@ -1,6 +1,6 @@
-# Admin AI Assistant
+# Admin AI Assistant Documentation
 
-**Natural-language booking management for administrators.**
+**Natural Language Booking Management for Administrators**
 
 ---
 
@@ -23,8 +23,16 @@ The Admin AI Assistant is an intelligent conversational interface that allows te
 
 ### Environment Configuration
 
-The Admin AI Assistant requires Google Generative AI API credentials in **`backend/.env`**:
+The Admin AI Assistant requires Google Generative AI API credentials. You must configure environment variables in **two locations**:
 
+#### 1. Root `.env.local`
+```env
+GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+```
+
+#### 2. Backend `backend/.env`
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
@@ -32,9 +40,10 @@ GOOGLE_GENAI_MODEL=gemini-3-flash-preview
 ```
 
 **Important Notes:**
-- Never commit `backend/.env` to version control (already in `.gitignore`)
+- Both files must contain the same `GOOGLE_API_KEY`
+- Never commit these files to version control (already in `.gitignore`)
 - If you see "API key was reported as leaked", generate a new key from [Google Cloud Console](https://console.cloud.google.com/)
-- Restart the backend server after updating environment variables
+- Restart both frontend and backend servers after updating environment variables
 
 ---
 
@@ -326,22 +335,19 @@ Agent: "✓ Done! Cancelled Jane's booking. Your booking moved."
 **Location**: Floating button (bottom-right corner)
 
 **States:**
-1. **Closed**: Pulsing teal button with icon (`primary-600`)
-2. **Open**: Chat window (450×650px) with teal gradient header
+1. **Closed**: Pulsing blue/purple button with icon
+2. **Open**: Chat window (450×650px) with gradient header
 3. **Loading**: Animated dots while AI thinks
 4. **Conflict**: Yellow-highlighted message with ⚠️ warning
 
 ### Visual Elements
 
-- **Gradient Header**: Teal (`primary-600` → `primary-700`)
-- **Toggle Button**: Teal gradient (`primary-600` → `primary-500`)
-- **User Messages**: Right-aligned, teal gradient background
+- **Gradient Header**: Blue → Purple
+- **User Messages**: Right-aligned, blue/purple gradient background
 - **AI Messages**: Left-aligned, white background
-- **Quick Action Chips**: `primary-50` background with `primary-700` text
 - **Conflict Messages**: Yellow border + warning icon
-- **Loading**: Bouncing teal dots animation
-- **Send Button**: Teal gradient (`primary-600` → `primary-500`)
-- **Input Focus Ring**: `primary-500`
+- **Loading**: Bouncing dots animation
+- **Pulse**: Green indicator showing AI is active
 
 ### Accessibility
 
@@ -417,7 +423,7 @@ Total: 3 bookings today"
 
 ### Model Configuration
 
-**From `backend/.env`:**
+**From `.env.local`:**
 ```env
 GOOGLE_GENAI_MODEL=gemini-3-flash-preview
 ```
@@ -487,7 +493,7 @@ try {
    - See floating AI button (bottom-right)
 
 2. **Open AI Assistant**
-   - Click the pulsing teal button
+   - Click the pulsing blue/purple button
    - Chat window opens with welcome message
 
 3. **Test Search**
@@ -553,7 +559,8 @@ describe("Admin Chat API", () => {
 **Cause**: Backend server down or API key invalid  
 **Solution**: 
 - Check backend is running (port 8080)
-- Verify `GOOGLE_API_KEY` in `backend/.env`
+- Verify `GOOGLE_API_KEY` in both `.env.local` AND `backend/.env`
+- **Important**: The backend requires its own `.env` file with the API key
 - Check browser console for errors
 - If you see "API key was reported as leaked", generate a new key from Google Cloud Console
 
@@ -681,5 +688,5 @@ The Admin AI Assistant revolutionizes booking management by providing a natural,
 - ✅ Always confirms changes
 
 **Production Ready:** ✅  
-**Last Updated:** February 6, 2026  
-**Version:** 1.1.0
+**Last Updated:** February 5, 2026  
+**Version:** 1.0.0

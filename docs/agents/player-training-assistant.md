@@ -1,4 +1,6 @@
-# Player Training AI Assistant
+# Player Training AI Assistant (Legacy)
+
+> **Note:** This agent has been superseded by the [Orchestrator Agent (Ace)](orchestrator.md). The `/api/training/chat` endpoint still works but delegates to the orchestrator. This document is kept for historical reference.
 
 **Personalized tennis training coach powered by journal analysis**
 
@@ -56,16 +58,8 @@ Admin AI Agent    Training AI Agent
 
 ### Environment Configuration
 
-Same as other AI agents - requires Google Gemini API key in both locations:
+Same as other AI agents — requires Google Gemini API key in **`backend/.env`**:
 
-#### Root `.env.local`
-```env
-GOOGLE_API_KEY=your_google_api_key_here
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
-
-#### Backend `backend/.env`
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
@@ -532,6 +526,6 @@ The Player Training AI Assistant transforms static journal entries into actionab
 - 🤝 Coach collaboration ready
 - 🎾 Accessible from journal dashboard
 
-**Production Ready:** ✅  
-**Last Updated:** February 5, 2026  
-**Version:** 1.0.0
+**Status:** Legacy (replaced by [Orchestrator Agent](orchestrator.md))  
+**Last Updated:** February 6, 2026  
+**Version:** 1.0.0 (final)

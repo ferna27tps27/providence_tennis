@@ -83,32 +83,19 @@ kill_port ${BACKEND_PORT}
 
 log_step "Environment Check"
 
-# Check if .env.local exists
-if [ ! -f .env.local ]; then
-    log_warn ".env.local file not found"
-    log_warn "Creating .env.local template..."
-    cat > .env.local << EOF
-GOOGLE_API_KEY=your_google_api_key_here
-GOOGLE_GENAI_USE_VERTEXAI=false
-EOF
-    log_warn "Please update .env.local with your actual API keys"
-    log_warn "Some features (AI Assistant) may not work without proper configuration"
-else
-    log_info ".env.local file found"
-    # Check if GOOGLE_API_KEY is set (basic check)
-    if grep -q "GOOGLE_API_KEY=.*[^your_]" .env.local 2>/dev/null; then
-        log_info "Google API key appears to be configured"
-    else
-        log_warn "Google API key may not be configured properly"
-    fi
-fi
-
-# Check if backend .env exists
+# Check if backend .env exists (single source of truth for all credentials)
 if [ ! -f backend/.env ]; then
     log_warn "backend/.env file not found"
-    log_warn "Backend requires GOOGLE_API_KEY and GOOGLE_GENAI_MODEL"
+    log_warn "Backend requires GOOGLE_API_KEY, GOOGLE_GENAI_MODEL, and Stripe keys"
+    log_warn "See env.sample for reference"
 else
     log_info "backend/.env file found"
+    # Check if GOOGLE_API_KEY is set (basic check)
+    if grep -q "GOOGLE_API_KEY=.*[^your_]" backend/.env 2>/dev/null; then
+        log_info "Google API key appears to be configured"
+    else
+        log_warn "Google API key may not be configured properly in backend/.env"
+    fi
 fi
 
 log_step "Dependencies Check"

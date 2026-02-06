@@ -125,3 +125,66 @@ export async function downloadInvoice(id: string, token: string): Promise<void> 
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Create a payment intent for a court booking
+ */
+export async function createPaymentIntent(
+  token: string,
+  options: {
+    amount: number; // Amount in dollars (e.g. 40 for $40)
+    reservationId?: string;
+    description?: string;
+  }
+): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/payments/create-intent`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: options.amount,
+      currency: "usd",
+      reservationId: options.reservationId,
+      description: options.description || "Court Booking - 1 Hour",
+    }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "Failed to create payment intent");
+  }
+
+  return response.json();
+}
+
+/**
+ * Confirm a payment after Stripe client-side confirmation
+ */
+export async function confirmPaymentOnServer(
+  token: string,
+  options: {
+    paymentIntentId: string;
+    reservationId?: string;
+  }
+): Promise<Payment> {
+  const response = await fetch(`${API_BASE_URL}/api/payments/confirm`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      paymentIntentId: options.paymentIntentId,
+      reservationId: options.reservationId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "Failed to confirm payment");
+  }
+
+  return response.json();
+}
