@@ -10,8 +10,24 @@ import * as jwt from "jsonwebtoken";
 import { Session } from "../../types/auth";
 import { getPrismaClient } from "../db/prisma-client";
 
+const INSECURE_DEVELOPMENT_JWT_SECRET = "development-only-insecure-jwt-secret";
+
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+}
+
 function getJwtSecret(): string {
-  return process.env.JWT_SECRET || "your-secret-key-change-in-production";
+  const secret = process.env.JWT_SECRET;
+
+  if (secret && secret !== "your-secret-key-change-in-production") {
+    return secret;
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error("JWT_SECRET must be configured for production runtime");
+  }
+
+  return INSECURE_DEVELOPMENT_JWT_SECRET;
 }
 
 function getJwtExpiresIn(): string {
@@ -22,6 +38,10 @@ function getSessionExpiryDate(): Date {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
   return expiresAt;
+}
+
+export function assertAuthSecretsConfigured(): void {
+  void getJwtSecret();
 }
 
 function toUserRole(role: string): UserRole {

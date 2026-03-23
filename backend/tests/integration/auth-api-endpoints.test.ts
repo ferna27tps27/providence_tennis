@@ -127,6 +127,7 @@ describe("Authentication API Endpoints Integration Tests (Phase 1)", () => {
       expect(response.body.member.email).toBe("john@example.com");
       expect(response.body.member.emailVerified).toBe(false);
       expect(response.body.member.role).toBe("player");
+      expect(response.body.verificationToken).toBeUndefined();
     });
 
     it("should reject signup with missing required fields", async () => {

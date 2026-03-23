@@ -142,6 +142,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+}
+
 function logPublicChatApiEvent(event: string, data: Record<string, unknown>) {
   console.log(
     JSON.stringify({
@@ -170,6 +174,15 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/chat/health", (_req, res) => {
+  if (isProductionRuntime()) {
+    const expectedToken = process.env.CHAT_HEALTH_TOKEN;
+    const providedToken = _req.get("x-chat-health-token");
+
+    if (!expectedToken || providedToken !== expectedToken) {
+      return res.status(404).json({ error: "Not found" });
+    }
+  }
+
   const modelName = process.env.GOOGLE_GENAI_MODEL || null;
   const apiKeyConfigured = Boolean(
     process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
@@ -1826,7 +1839,6 @@ app.post("/api/auth/signup", async (req, res) => {
       message: "Account created successfully. Please verify your email address.",
       member: signInResult.member,
       token: signInResult.token,
-      verificationToken: result.verificationToken,
     });
   } catch (error: any) {
     console.error("Error in signup:", error);
