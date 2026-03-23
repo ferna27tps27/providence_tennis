@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { randomUUID } from "crypto";
 import { chatWithAgent, ChatMessage } from "./lib/ai-agent";
 import { chatWithAdminAgent, AdminChatMessage } from "./lib/admin-ai-agent";
 import {
@@ -141,6 +142,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+function logPublicChatApiEvent(event: string, data: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: "public_ai_chat_api",
+      event,
+      timestamp: new Date().toISOString(),
+      ...data,
+    })
+  );
+}
+
 app.get("/", (_req, res) => {
   return res.json({
     ok: true,
@@ -157,11 +169,45 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.get("/api/chat/health", (_req, res) => {
+  const modelName = process.env.GOOGLE_GENAI_MODEL || null;
+  const apiKeyConfigured = Boolean(
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  );
+
+  return res.json({
+    ok: Boolean(modelName && apiKeyConfigured),
+    route: "/api/chat",
+    modelName,
+    apiKeyConfigured,
+    databaseRuntime: process.env.DATABASE_URL ? "postgres" : "file",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.post("/api/chat", async (req, res) => {
+  const requestId = randomUUID();
+  const startedAt = Date.now();
+
   try {
     const { message, conversationHistory = [] } = req.body || {};
 
+    logPublicChatApiEvent("request_received", {
+      requestId,
+      origin: req.get("origin") || null,
+      userAgent: req.get("user-agent") || null,
+      messageLength: typeof message === "string" ? message.length : 0,
+      historyCount: Array.isArray(conversationHistory)
+        ? conversationHistory.length
+        : 0,
+    });
+
     if (!message || typeof message !== "string") {
+      logPublicChatApiEvent("request_rejected", {
+        requestId,
+        reason: "invalid_message",
+      });
+
       return res.status(400).json({ error: "Message is required" });
     }
 
@@ -177,15 +223,36 @@ app.post("/api/chat", async (req, res) => {
         content: msg.content || "",
       }));
 
-    const result = await chatWithAgent(message, validHistory);
+    const result = await chatWithAgent(message, validHistory, { requestId });
+
+    logPublicChatApiEvent("request_completed", {
+      requestId,
+      durationMs: Date.now() - startedAt,
+      responseLength: result.response.length,
+      sourcesCount: result.sources?.length || 0,
+    });
 
     return res.json({
+      requestId,
       response: result.response,
       sources: result.sources,
     });
   } catch (error: any) {
-    console.error("Error in chat API:", error);
+    console.error(
+      JSON.stringify({
+        scope: "public_ai_chat_api",
+        event: "request_failed",
+        timestamp: new Date().toISOString(),
+        requestId,
+        durationMs: Date.now() - startedAt,
+        errorName: error?.name || "Error",
+        errorMessage: error?.message || "Failed to process chat message",
+        stack: error?.stack || null,
+      })
+    );
+
     return res.status(500).json({
+      requestId,
       error: error.message || "Failed to process chat message",
     });
   }

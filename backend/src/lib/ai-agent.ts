@@ -11,6 +11,10 @@ import {
   runGeminiFunctionCallingLoop,
 } from "./gemini-client";
 
+export type PublicAiChatContext = {
+  requestId?: string;
+};
+
 const TENNIS_CONTEXT = `
 You are a helpful AI assistant for Providence Tennis Academy, located at 1000 Elmwood Avenue, Providence, RI, USA. Phone: 401-935-4336.
 
@@ -76,6 +80,17 @@ export interface ChatMessage {
   timestamp?: Date;
 }
 
+function logPublicAiEvent(event: string, data: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: "public_ai_agent",
+      event,
+      timestamp: new Date().toISOString(),
+      ...data,
+    })
+  );
+}
+
 function parseBookingDetails(message: string): ParsedBooking | null {
   const courtMatch = message.match(/court\s*(\d+)/i);
   const dateMatch = message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
@@ -115,7 +130,8 @@ function parseBookingDetails(message: string): ParsedBooking | null {
 
 export async function chatWithAgent(
   message: string,
-  conversationHistory: ChatMessage[] = []
+  conversationHistory: ChatMessage[] = [],
+  context: PublicAiChatContext = {}
 ): Promise<{ response: string; sources?: Array<{ title: string; url: string }> }> {
   try {
     const modelName = process.env.GOOGLE_GENAI_MODEL;
@@ -123,8 +139,24 @@ export async function chatWithAgent(
       throw new Error("GOOGLE_GENAI_MODEL is not set in environment");
     }
 
+    logPublicAiEvent("chat_started", {
+      requestId: context.requestId,
+      modelName,
+      messageLength: message.length,
+      historyCount: conversationHistory.length,
+      apiKeyConfigured: Boolean(
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+      ),
+    });
+
     const parsedBooking = parseBookingDetails(message);
     if (parsedBooking) {
+      logPublicAiEvent("booking_detected", {
+        requestId: context.requestId,
+        courtId: parsedBooking.courtId,
+        date: parsedBooking.date,
+      });
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(parsedBooking.customerEmail)) {
         return { response: "Please provide a valid email address." };
@@ -152,6 +184,12 @@ export async function chatWithAgent(
           response: `Confirmed! Your reservation for ${reservation.courtName} on ${reservation.date} from ${reservation.timeSlot.start} to ${reservation.timeSlot.end} is booked. A confirmation will be sent to ${reservation.customerEmail}.`,
         };
       } catch (error: any) {
+        logPublicAiEvent("booking_failed", {
+          requestId: context.requestId,
+          errorName: error?.name || "Error",
+          errorMessage: error?.message || "Unknown booking error",
+        });
+
         return {
           response:
             error.message ||
@@ -243,6 +281,11 @@ export async function chatWithAgent(
     const handleFunctionCall = async (call: ToolCall) => {
       const args = normalizeToolArgs(call.args);
 
+      logPublicAiEvent("tool_call_started", {
+        requestId: context.requestId,
+        toolName: call.name,
+      });
+
       if (call.name === "getCourtAvailability") {
         const date = String(args.date || "");
         const courtId = args.courtId ? String(args.courtId) : undefined;
@@ -310,8 +353,22 @@ export async function chatWithAgent(
             customerPhone,
             notes,
           });
+
+          logPublicAiEvent("tool_call_completed", {
+            requestId: context.requestId,
+            toolName: call.name,
+            success: true,
+          });
+
           return { success: true, reservation };
         } catch (error: any) {
+          logPublicAiEvent("tool_call_failed", {
+            requestId: context.requestId,
+            toolName: call.name,
+            errorName: error?.name || "Error",
+            errorMessage: error?.message || "Failed to create reservation",
+          });
+
           return {
             success: false,
             error: error.message || "Failed to create reservation",
@@ -368,7 +425,18 @@ export async function chatWithAgent(
       sources: sources.length > 0 ? sources : undefined,
     };
   } catch (error: any) {
-    console.error("Error in AI agent:", error);
+    console.error(
+      JSON.stringify({
+        scope: "public_ai_agent",
+        event: "chat_failed",
+        timestamp: new Date().toISOString(),
+        requestId: context.requestId,
+        errorName: error?.name || "Error",
+        errorMessage: error?.message || "Failed to get response from AI agent",
+        stack: error?.stack || null,
+      })
+    );
+
     throw new Error(
       error.message || "Failed to get response from AI agent"
     );
