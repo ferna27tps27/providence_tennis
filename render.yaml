@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: ferna27-providence-tennis-web
+    runtime: node
+    plan: free
+    region: virginia
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://ferna27-providence-tennis-api.onrender.com
+
+  - type: web
+    name: ferna27-providence-tennis-api
+    runtime: node
+    plan: free
+    region: virginia
+    autoDeploy: true
+    buildCommand: cd backend && npm ci && npm run db:generate && npm run build
+    startCommand: cd backend && npm run db:push && npm run db:import:json && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: providence-tennis-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://ferna27-providence-tennis-web.onrender.com
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_GENAI_MODEL
+        value: gemini-3-flash-preview
+
+databases:
+  - name: providence-tennis-db
+    databaseName: providence_tennis
+    user: providence_tennis_user
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []

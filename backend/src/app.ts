@@ -58,6 +58,7 @@ import {
   UnauthorizedError,
 } from "./lib/errors/auth-errors";
 import { authenticate, requireRole } from "./lib/auth/auth-middleware";
+import { removeSession } from "./lib/auth/session-manager";
 import {
   createPaymentIntent as createPaymentIntentService,
   confirmPayment,
@@ -97,11 +98,57 @@ import {
   JournalError,
 } from "./lib/errors/journal-errors";
 import { normalizeRole } from "./lib/utils/role-utils";
+import {
+  createPrivateLesson,
+  getPrivateLesson,
+  listPrivateLessons,
+  updatePrivateLesson,
+} from "./lib/private-lessons";
+import { PrivateLessonRequest } from "./types/private-lesson";
+import {
+  createRecurringProgram,
+  getRecurringProgram,
+  listProgramSessions,
+  listRecurringPrograms,
+  updateRecurringProgram,
+} from "./lib/recurring-programs";
+import {
+  ProgramSessionFilter,
+  RecurringProgramRequest,
+} from "./types/recurring-program";
+import { PrivateLessonStatus } from "./types/private-lesson";
+import { RecurringProgramStatus } from "./types/recurring-program";
+import { createMembership, listMemberships } from "./lib/memberships";
+import { createLessonPackage, listLessonPackages } from "./lib/lesson-packages";
+import { MembershipRequest } from "./types/membership";
+import { LessonPackageRequest } from "./types/lesson-package";
+import {
+  getCoachLoadReport,
+  getCourtUtilizationReport,
+  getFinanceOverview,
+  getRefundReport,
+} from "./lib/reports";
+import {
+  chatWithCoachAssistant,
+  generateCoachPlayerSummary,
+  generateCoachSessionPrep,
+  generateCoachTrainingPlanDraft,
+  saveCoachTrainingPlanDraft,
+} from "./lib/coach-ai";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.get("/api/health", (_req, res) => {
+  return res.json({
+    ok: true,
+    service: "providence-tennis-backend",
+    database: process.env.DATABASE_URL ? "postgres" : "file",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.post("/api/chat", async (req, res) => {
   try {
@@ -277,6 +324,183 @@ app.post("/api/orchestrator/chat", authenticate, async (req, res) => {
   }
 });
 
+app.post("/api/coach-ai/player-summary", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const { playerId } = req.body || {};
+
+    if (!playerId) {
+      return res.status(400).json({
+        error: "playerId is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const summary = await generateCoachPlayerSummary(playerId);
+    return res.json(summary);
+  } catch (error: any) {
+    console.error("Error generating coach player summary:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to generate player summary",
+    });
+  }
+});
+
+app.post("/api/coach-ai/training-plan-draft", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const { playerId } = req.body || {};
+
+    if (!playerId) {
+      return res.status(400).json({
+        error: "playerId is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const draft = await generateCoachTrainingPlanDraft(playerId);
+    return res.json(draft);
+  } catch (error: any) {
+    console.error("Error generating training plan draft:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to generate training plan draft",
+    });
+  }
+});
+
+app.post("/api/coach-ai/training-plan-draft/save", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const { playerId } = req.body || {};
+
+    if (!playerId) {
+      return res.status(400).json({
+        error: "playerId is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const trainingPlan = await saveCoachTrainingPlanDraft(playerId, req.session?.memberId || "");
+    return res.status(201).json(trainingPlan);
+  } catch (error: any) {
+    console.error("Error saving training plan draft:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to save training plan draft",
+    });
+  }
+});
+
+app.post("/api/coach-ai/chat", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const { playerId, message, conversationHistory = [] } = req.body || {};
+
+    if (!playerId) {
+      return res.status(400).json({
+        error: "playerId is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({
+        error: "message is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const validHistory: Array<{ role: string; content: string }> = (Array.isArray(conversationHistory)
+      ? conversationHistory
+      : []
+    )
+      .filter((msg: any) => msg?.role === "user" || msg?.role === "assistant")
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content || "",
+      }));
+
+    const member = await getCurrentMember(req.session?.memberId || "");
+    const memberRole = normalizeRole(member.role);
+    const result = await chatWithCoachAssistant({
+      playerId,
+      message,
+      conversationHistory: validHistory,
+      userId: member.id,
+      userRole: memberRole,
+      userName: `${member.firstName} ${member.lastName}`,
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Error in coach AI chat API:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to process coach AI chat",
+    });
+  }
+});
+
+app.post("/api/coach-ai/session-prep", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const { playerId } = req.body || {};
+
+    if (!playerId) {
+      return res.status(400).json({
+        error: "playerId is required",
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const prep = await generateCoachSessionPrep(playerId);
+    return res.json(prep);
+  } catch (error: any) {
+    console.error("Error generating session prep:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to generate session prep",
+    });
+  }
+});
+
 app.get("/api/availability", async (req, res) => {
   try {
     const date = String(req.query.date || "");
@@ -332,6 +556,32 @@ function normalizeQueryParam(value: unknown): string {
   return String(value ?? "");
 }
 
+function parsePrivateLessonStatus(value: string): PrivateLessonStatus | undefined {
+  if (
+    value === "scheduled" ||
+    value === "completed" ||
+    value === "cancelled" ||
+    value === "no_show"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parseRecurringProgramStatus(value: string): RecurringProgramStatus | undefined {
+  if (
+    value === "active" ||
+    value === "paused" ||
+    value === "completed" ||
+    value === "cancelled"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
 async function attachReservationContext(reservation: any) {
   const base = {
     ...reservation,
@@ -375,6 +625,45 @@ async function attachReservationContext(reservation: any) {
     reservation.customerEmail ||
     "";
   return base;
+}
+
+async function getMemberSummary(memberId: string) {
+  const member = await getMember(memberId);
+  const firstName = (member as any).firstName || "";
+  const lastName = (member as any).lastName || "";
+
+  return {
+    id: member.id,
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`.trim(),
+    email: member.email,
+    role: (member as any).role,
+  };
+}
+
+async function attachPrivateLessonContext(lesson: any) {
+  const [coach, player] = await Promise.all([
+    getMemberSummary(lesson.coachId),
+    getMemberSummary(lesson.playerId),
+  ]);
+
+  return {
+    ...lesson,
+    coach,
+    player,
+  };
+}
+
+async function attachProgramSessionContext(session: any) {
+  const coach = await getMemberSummary(session.coachId);
+  const court = await getCourt(session.courtId);
+
+  return {
+    ...session,
+    coach,
+    courtName: court?.name || session.courtId,
+  };
 }
 
 app.get("/api/admin/reservations", authenticate, requireRole("admin"), async (req, res) => {
@@ -423,6 +712,288 @@ app.get("/api/admin/reservations", authenticate, requireRole("admin"), async (re
     console.error("Error fetching admin reservations:", error);
     return res.status(500).json({
       error: error.message || "Failed to fetch reservations",
+    });
+  }
+});
+
+app.get("/api/private-lessons", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom);
+    const dateTo = normalizeQueryParam(req.query.dateTo);
+    const coachId = normalizeQueryParam(req.query.coachId);
+    const playerId = normalizeQueryParam(req.query.playerId);
+    const courtId = normalizeQueryParam(req.query.courtId);
+    const status = normalizeQueryParam(req.query.status);
+
+    const filter = {
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      coachId: coachId || undefined,
+      playerId: playerId || undefined,
+      courtId: courtId || undefined,
+      status: parsePrivateLessonStatus(status),
+    };
+
+    const lessons = await listPrivateLessons(filter);
+    const enriched = await Promise.all(lessons.map(attachPrivateLessonContext));
+    return res.json(enriched);
+  } catch (error: any) {
+    console.error("Error fetching private lessons:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch private lessons",
+    });
+  }
+});
+
+app.post("/api/private-lessons", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const body: PrivateLessonRequest = req.body;
+    const lesson = await createPrivateLesson(body);
+    const enriched = await attachPrivateLessonContext(lesson);
+    return res.status(201).json(enriched);
+  } catch (error: any) {
+    console.error("Error creating private lesson:", error);
+
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError || error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to create private lesson",
+    });
+  }
+});
+
+app.patch("/api/private-lessons/:id", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const lesson = await updatePrivateLesson(req.params.id, req.body || {});
+    const enriched = await attachPrivateLessonContext(lesson);
+    return res.json(enriched);
+  } catch (error: any) {
+    console.error("Error updating private lesson:", error);
+
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError || error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to update private lesson",
+    });
+  }
+});
+
+app.get("/api/programs", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const coachId = normalizeQueryParam(req.query.coachId);
+    const courtId = normalizeQueryParam(req.query.courtId);
+    const status = normalizeQueryParam(req.query.status);
+
+    const programs = await listRecurringPrograms({
+      coachId: coachId || undefined,
+      courtId: courtId || undefined,
+      status: parseRecurringProgramStatus(status),
+    });
+
+    return res.json(programs);
+  } catch (error: any) {
+    console.error("Error fetching recurring programs:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch recurring programs",
+    });
+  }
+});
+
+app.post("/api/programs", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const body: RecurringProgramRequest = req.body;
+    const program = await createRecurringProgram(body);
+    return res.status(201).json(program);
+  } catch (error: any) {
+    console.error("Error creating recurring program:", error);
+
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError || error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to create recurring program",
+    });
+  }
+});
+
+app.patch("/api/programs/:id", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    await getRecurringProgram(req.params.id);
+    const program = await updateRecurringProgram(req.params.id, req.body || {});
+    return res.json(program);
+  } catch (error: any) {
+    console.error("Error updating recurring program:", error);
+
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError || error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to update recurring program",
+    });
+  }
+});
+
+app.get("/api/program-sessions", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const filter: ProgramSessionFilter = {
+      dateFrom: normalizeQueryParam(req.query.dateFrom) || undefined,
+      dateTo: normalizeQueryParam(req.query.dateTo) || undefined,
+      coachId: normalizeQueryParam(req.query.coachId) || undefined,
+      courtId: normalizeQueryParam(req.query.courtId) || undefined,
+      programId: normalizeQueryParam(req.query.programId) || undefined,
+      status: parsePrivateLessonStatus(normalizeQueryParam(req.query.status)),
+    };
+
+    const sessions = await listProgramSessions(filter);
+    const enriched = await Promise.all(sessions.map(attachProgramSessionContext));
+    return res.json(enriched);
+  } catch (error: any) {
+    console.error("Error fetching program sessions:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch program sessions",
+    });
+  }
+});
+
+app.get("/api/schedule", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom);
+    const dateTo = normalizeQueryParam(req.query.dateTo);
+    const date = normalizeQueryParam(req.query.date);
+    const windowStart = date || dateFrom;
+    const windowEnd = date || dateTo;
+
+    const [reservations, lessons, sessions] = await Promise.all([
+      getAllReservations(),
+      listPrivateLessons({
+        dateFrom: windowStart || undefined,
+        dateTo: windowEnd || undefined,
+      }),
+      listProgramSessions({
+        dateFrom: windowStart || undefined,
+        dateTo: windowEnd || undefined,
+      }),
+    ]);
+
+    const filteredReservations = reservations.filter((reservation) => {
+      if (windowStart && reservation.date < windowStart) return false;
+      if (windowEnd && reservation.date > windowEnd) return false;
+      return true;
+    });
+
+    const reservationItems = await Promise.all(
+      filteredReservations.map(async (reservation) => {
+        const enriched = await attachReservationContext(reservation);
+        return {
+          id: `reservation-${reservation.id}`,
+          sourceId: reservation.id,
+          sourceType: "court_reservation",
+          title: `Court Reservation: ${reservation.courtName}`,
+          date: reservation.date,
+          startTime: reservation.timeSlot.start,
+          endTime: reservation.timeSlot.end,
+          courtId: reservation.courtId,
+          courtName: reservation.courtName,
+          status: reservation.status,
+          primaryPerson: enriched.contactName,
+          secondaryPerson: enriched.contactEmail,
+          notes: reservation.notes || "",
+        };
+      })
+    );
+
+    const lessonItems = await Promise.all(
+      lessons.map(async (lesson) => {
+        const enriched = await attachPrivateLessonContext(lesson);
+        return {
+          id: `lesson-${lesson.id}`,
+          sourceId: lesson.id,
+          sourceType: "private_lesson",
+          title: `Private Lesson${lesson.lessonType ? `: ${lesson.lessonType}` : ""}`,
+          date: lesson.date,
+          startTime: lesson.timeSlot.start,
+          endTime: lesson.timeSlot.end,
+          courtId: lesson.courtId,
+          courtName: lesson.courtName,
+          status: lesson.status,
+          primaryPerson: enriched.player.fullName,
+          secondaryPerson: enriched.coach.fullName,
+          coachId: enriched.coach.id,
+          playerId: enriched.player.id,
+          notes: lesson.notes || "",
+        };
+      })
+    );
+
+    const sessionItems = await Promise.all(
+      sessions.map(async (session) => {
+        const enriched = await attachProgramSessionContext(session);
+        return {
+          id: `program-session-${session.id}`,
+          sourceId: session.id,
+          sourceType: "program_session",
+          title: `Program: ${session.programName}`,
+          date: session.date,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          courtId: session.courtId,
+          courtName: enriched.courtName,
+          status: session.status,
+          primaryPerson: session.programName,
+          secondaryPerson: enriched.coach.fullName,
+          coachId: enriched.coach.id,
+          notes: session.notes || "",
+        };
+      })
+    );
+
+    const items = [...reservationItems, ...lessonItems, ...sessionItems].sort((a, b) =>
+      `${a.date}-${a.startTime}-${a.title}`.localeCompare(`${b.date}-${b.startTime}-${b.title}`)
+    );
+
+    return res.json(items);
+  } catch (error: any) {
+    console.error("Error fetching unified schedule:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch schedule",
     });
   }
 });
@@ -494,7 +1065,10 @@ app.patch("/api/admin/reservations/:id", authenticate, requireRole("admin"), asy
       return res.status(400).json({ error: "No update data provided" });
     }
 
-    if (updates.status && !["confirmed", "cancelled"].includes(updates.status)) {
+    if (
+      updates.status &&
+      !["pending_payment", "confirmed", "cancelled"].includes(updates.status)
+    ) {
       return res.status(400).json({ error: "Invalid status value" });
     }
 
@@ -1168,17 +1742,17 @@ app.post("/api/auth/signup", async (req, res) => {
       role,
     });
 
-    // Email verification is disabled - automatically sign in the user
-    // Create a session and token for immediate access
+    // Keep the current UX: immediately sign the user in, but preserve unverified state.
     const signInResult = await signIn({
       email,
       password,
     });
 
     return res.status(201).json({
-      message: "Account created successfully. You have been automatically signed in.",
+      message: "Account created successfully. Please verify your email address.",
       member: signInResult.member,
       token: signInResult.token,
+      verificationToken: result.verificationToken,
     });
   } catch (error: any) {
     console.error("Error in signup:", error);
@@ -1275,8 +1849,8 @@ app.get("/api/auth/me", authenticate, async (req, res) => {
  */
 app.post("/api/auth/logout", authenticate, async (req, res) => {
   try {
-    // In a stateless JWT system, logout is handled client-side
-    // But we can still acknowledge it
+    await removeSession(req.session?.memberId || "", req.session?.sessionId);
+
     return res.json({
       message: "Logged out successfully",
     });
@@ -1821,6 +2395,130 @@ app.post("/api/payments/:id/refund", authenticate, async (req, res) => {
 
     return res.status(500).json({
       error: error.message || "Failed to process refund",
+    });
+  }
+});
+
+app.get("/api/admin/memberships", authenticate, requireRole("admin"), async (_req, res) => {
+  try {
+    const memberships = await listMemberships();
+    return res.json(memberships);
+  } catch (error: any) {
+    console.error("Error fetching memberships:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch memberships",
+    });
+  }
+});
+
+app.post("/api/admin/memberships", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const body: MembershipRequest = req.body;
+    const membership = await createMembership(body);
+    return res.status(201).json(membership);
+  } catch (error: any) {
+    console.error("Error creating membership:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to create membership",
+    });
+  }
+});
+
+app.get("/api/admin/lesson-packages", authenticate, requireRole("admin"), async (_req, res) => {
+  try {
+    const lessonPackages = await listLessonPackages();
+    return res.json(lessonPackages);
+  } catch (error: any) {
+    console.error("Error fetching lesson packages:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch lesson packages",
+    });
+  }
+});
+
+app.post("/api/admin/lesson-packages", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const body: LessonPackageRequest = req.body;
+    const lessonPackage = await createLessonPackage(body);
+    return res.status(201).json(lessonPackage);
+  } catch (error: any) {
+    console.error("Error creating lesson package:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, code: error.code });
+    }
+
+    if (error instanceof MemberNotFoundError) {
+      return res.status(404).json({ error: error.message, code: error.code });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to create lesson package",
+    });
+  }
+});
+
+app.get("/api/reports/overview", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom) || undefined;
+    const dateTo = normalizeQueryParam(req.query.dateTo) || undefined;
+    const overview = await getFinanceOverview(dateFrom, dateTo);
+    return res.json(overview);
+  } catch (error: any) {
+    console.error("Error fetching finance overview:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch finance overview",
+    });
+  }
+});
+
+app.get("/api/reports/refunds", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom) || undefined;
+    const dateTo = normalizeQueryParam(req.query.dateTo) || undefined;
+    const report = await getRefundReport(dateFrom, dateTo);
+    return res.json(report);
+  } catch (error: any) {
+    console.error("Error fetching refund report:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch refund report",
+    });
+  }
+});
+
+app.get("/api/reports/court-utilization", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom) || undefined;
+    const dateTo = normalizeQueryParam(req.query.dateTo) || undefined;
+    const report = await getCourtUtilizationReport(dateFrom, dateTo);
+    return res.json(report);
+  } catch (error: any) {
+    console.error("Error fetching court utilization report:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch court utilization report",
+    });
+  }
+});
+
+app.get("/api/reports/coach-load", authenticate, requireRole("coach", "admin"), async (req, res) => {
+  try {
+    const dateFrom = normalizeQueryParam(req.query.dateFrom) || undefined;
+    const dateTo = normalizeQueryParam(req.query.dateTo) || undefined;
+    const report = await getCoachLoadReport(dateFrom, dateTo);
+    return res.json(report);
+  } catch (error: any) {
+    console.error("Error fetching coach load report:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to fetch coach load report",
     });
   }
 });

@@ -15,6 +15,7 @@ import {
   PaymentConfirmationError,
   InvalidAmountError,
 } from "../errors/payment-errors";
+import { reservationRepository } from "../repositories/file-reservation-repository";
 
 /**
  * Process a payment request and create payment intent
@@ -99,7 +100,25 @@ export async function confirmPayment(
     updates.reservationId = request.reservationId;
   }
 
-  return paymentRepository.update(payment.id, updates);
+  const updatedPayment = await paymentRepository.update(payment.id, updates);
+
+  const reservationId = request.reservationId || payment.reservationId;
+  if (reservationId) {
+    try {
+      await reservationRepository.update(reservationId, {
+        paymentId: updatedPayment.id,
+        paymentAmount: updatedPayment.amount,
+        paymentStatus: "paid",
+        status: "confirmed",
+      });
+    } catch {
+      throw new PaymentConfirmationError(
+        `Payment was confirmed but reservation ${reservationId} could not be finalized`
+      );
+    }
+  }
+
+  return updatedPayment;
 }
 
 /**

@@ -11,7 +11,7 @@ export interface SignUpRequest {
   email: string;
   phone: string;
   password: string;
-  role?: "player" | "coach" | "parent" | "admin";
+  role?: "player" | "coach" | "parent" | "admin" | "owner";
 }
 
 export interface SignInRequest {
@@ -28,7 +28,7 @@ export interface AuthResponse {
     email: string;
     phone: string;
     emailVerified: boolean;
-    role?: "player" | "coach" | "parent" | "admin";
+    role?: "player" | "coach" | "parent" | "admin" | "owner";
   };
 }
 
@@ -133,11 +133,12 @@ export async function signOut(token: string): Promise<void> {
  * Verify email address
  */
 export async function verifyEmail(data: VerifyEmailRequest): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email/${data.token}`, {
-    method: "GET",
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
+    body: JSON.stringify(data),
   });
 
   if (!response.ok) {

@@ -30,6 +30,7 @@ export interface AuthResponse {
 }
 
 export interface Session {
+  sessionId?: string;
   memberId: string;
   email: string;
   role: string;

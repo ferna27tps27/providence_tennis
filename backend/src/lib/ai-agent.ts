@@ -1,11 +1,15 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { FunctionCallingConfigMode, Type } from "@google/genai";
 import {
   createReservation,
   getAvailabilityByDate,
   getCourt,
 } from "./reservations";
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+import {
+  buildGeminiHistory,
+  getResponseText,
+  normalizeToolArgs,
+  runGeminiFunctionCallingLoop,
+} from "./gemini-client";
 
 const TENNIS_CONTEXT = `
 You are a helpful AI assistant for Providence Tennis Academy, located at 1000 Elmwood Avenue, Providence, RI, USA. Phone: 401-935-4336.
@@ -134,7 +138,6 @@ export async function chatWithAgent(
       try {
         const reservation = await createReservation({
           courtId: parsedBooking.courtId,
-          courtName: court.name,
           date: parsedBooking.date,
           timeSlot: {
             start: parsedBooking.timeSlotStart,
@@ -164,14 +167,14 @@ export async function chatWithAgent(
             name: "getCourtAvailability",
             description: "Get available court time slots for a specific date.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date in YYYY-MM-DD format",
                 },
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional court ID to filter availability",
                 },
               },
@@ -182,38 +185,38 @@ export async function chatWithAgent(
             name: "createCourtReservation",
             description: "Create a court reservation in the booking backend.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Court ID to reserve",
                 },
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date in YYYY-MM-DD format",
                 },
                 timeSlotStart: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Start time in HH:mm format",
                 },
                 timeSlotEnd: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "End time in HH:mm format",
                 },
                 customerName: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer full name",
                 },
                 customerEmail: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer email address",
                 },
                 customerPhone: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer phone number",
                 },
                 notes: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional booking notes",
                 },
               },
@@ -232,52 +235,22 @@ export async function chatWithAgent(
       },
     ] as any;
 
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      tools,
-    });
-
     let filteredHistory = conversationHistory.slice(-10);
     if (filteredHistory.length > 0 && filteredHistory[0].role === "assistant") {
       filteredHistory = filteredHistory.slice(1);
     }
 
-    const history = filteredHistory.map((msg) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
-
-    const historyWithContext = [
-      {
-        role: "user",
-        parts: [{ text: TENNIS_CONTEXT }],
-      },
-      ...history,
-    ];
-
-    const chat = model.startChat({
-      history: historyWithContext,
-      toolConfig: {
-        functionCallingConfig: { mode: "AUTO" },
-      } as any,
-    });
-
     const handleFunctionCall = async (call: ToolCall) => {
-      let args: Record<string, any> = {};
-      if (typeof call.args === "string") {
-        try {
-          args = JSON.parse(call.args);
-        } catch {
-          args = {};
-        }
-      } else if (call.args) {
-        args = call.args;
-      }
+      const args = normalizeToolArgs(call.args);
 
       if (call.name === "getCourtAvailability") {
         const date = String(args.date || "");
         const courtId = args.courtId ? String(args.courtId) : undefined;
-        const availability = await getAvailabilityByDate(date);
+        const availability = (await getAvailabilityByDate(date)) as Array<{
+          courtId: string;
+          courtName: string;
+          slots: Array<{ start: string; end: string; available: boolean }>;
+        }>;
         const filtered = courtId
           ? availability.filter((court) => court.courtId === courtId)
           : availability;
@@ -330,7 +303,6 @@ export async function chatWithAgent(
         try {
           const reservation = await createReservation({
             courtId,
-            courtName: court.name,
             date,
             timeSlot: { start: timeSlotStart, end: timeSlotEnd },
             customerName,
@@ -349,38 +321,27 @@ export async function chatWithAgent(
 
       return { success: false, error: "Unknown function call" };
     };
+    const contents = [
+      ...buildGeminiHistory(filteredHistory, TENNIS_CONTEXT),
+      {
+        role: "user",
+        parts: [{ text: message }],
+      },
+    ];
 
-    const extractFunctionCalls = (response: any): ToolCall[] => {
-      if (typeof response.functionCalls === "function") {
-        return response.functionCalls() || [];
-      }
-
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      return parts
-        .filter((part: any) => part.functionCall)
-        .map((part: any) => part.functionCall);
-    };
-
-    let result = await chat.sendMessage(message);
-    let response = await result.response;
-
-    let toolCalls = extractFunctionCalls(response);
-    while (toolCalls.length > 0) {
-      for (const call of toolCalls) {
-        const toolResult = await handleFunctionCall(call);
-        result = await chat.sendMessage([
-          {
-            functionResponse: {
-              name: call.name,
-              response: toolResult,
-            },
+    const { response } = await runGeminiFunctionCallingLoop({
+      model: modelName,
+      contents,
+      tools,
+      config: {
+        toolConfig: {
+          functionCallingConfig: {
+            mode: FunctionCallingConfigMode.AUTO,
           },
-        ]);
-        response = await result.response;
-      }
-
-      toolCalls = extractFunctionCalls(response);
-    }
+        },
+      },
+      handleToolCall: handleFunctionCall,
+    });
 
     const sources: Array<{ title: string; url: string }> = [];
     try {
@@ -403,7 +364,7 @@ export async function chatWithAgent(
     }
 
     return {
-      response: response.text(),
+      response: getResponseText(response),
       sources: sources.length > 0 ? sources : undefined,
     };
   } catch (error: any) {

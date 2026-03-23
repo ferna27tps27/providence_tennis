@@ -1,89 +1,127 @@
 /**
- * Password reset token management
+ * Password reset token management.
+ *
+ * Uses Prisma when DATABASE_URL is configured and falls back to an in-memory
+ * store otherwise.
  */
 
 import { randomBytes } from "crypto";
+
 import { PasswordResetToken } from "../../types/auth";
+import { getPrismaClient } from "../db/prisma-client";
+import { normalizeEmail } from "../utils/member-validation";
 
-// In-memory token store (in production, use database)
 const resetTokens = new Map<string, PasswordResetToken>();
+const TOKEN_EXPIRY_MINUTES = 30;
 
-const TOKEN_EXPIRY_MINUTES = 30; // 30 minutes
-
-/**
- * Generate a secure random token
- */
 function generateToken(): string {
   return randomBytes(32).toString("hex");
 }
 
-/**
- * Create a password reset token
- */
-export function createResetToken(email: string): string {
-  // Remove any existing token for this email
-  for (const [token, data] of Array.from(resetTokens.entries())) {
-    if (data.email === email && !data.used) {
-      resetTokens.delete(token);
-    }
-  }
-  
+export async function createResetToken(email: string): Promise<string> {
+  const normalizedEmail = normalizeEmail(email);
   const token = generateToken();
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + TOKEN_EXPIRY_MINUTES);
-  
-  const tokenData: PasswordResetToken = {
-    email,
+
+  const prisma = getPrismaClient();
+  if (prisma) {
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+
+    await prisma.passwordResetToken.deleteMany({
+      where: { email: normalizedEmail },
+    });
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user?.id || null,
+        email: normalizedEmail,
+        token,
+        expiresAt,
+      },
+    });
+
+    return token;
+  }
+
+  for (const [existingToken, data] of Array.from(resetTokens.entries())) {
+    if (data.email === normalizedEmail && !data.used) {
+      resetTokens.delete(existingToken);
+    }
+  }
+
+  resetTokens.set(token, {
+    email: normalizedEmail,
     token,
     expiresAt: expiresAt.toISOString(),
     used: false,
-  };
-  
-  resetTokens.set(token, tokenData);
-  
+  });
+
   return token;
 }
 
-/**
- * Verify and consume a password reset token
- */
-export function verifyResetToken(token: string): { email: string; valid: boolean } {
+export async function verifyResetToken(token: string): Promise<{ email: string; valid: boolean }> {
+  if (!token) {
+    return { email: "", valid: false };
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma) {
+    const tokenRecord = await prisma.passwordResetToken.findUnique({
+      where: { token },
+    });
+
+    if (!tokenRecord) {
+      return { email: "", valid: false };
+    }
+
+    if (tokenRecord.expiresAt < new Date()) {
+      await prisma.passwordResetToken.delete({ where: { token } }).catch(() => {});
+      return { email: "", valid: false };
+    }
+
+    const email = tokenRecord.email;
+    await prisma.passwordResetToken.delete({ where: { token } });
+    return { email, valid: true };
+  }
+
   const tokenData = resetTokens.get(token);
-  
-  if (!tokenData) {
+  if (!tokenData || tokenData.used) {
     return { email: "", valid: false };
   }
-  
-  if (tokenData.used) {
-    return { email: "", valid: false };
-  }
-  
+
   if (new Date(tokenData.expiresAt) < new Date()) {
     resetTokens.delete(token);
     return { email: "", valid: false };
   }
-  
-  // Mark token as used
+
   tokenData.used = true;
   resetTokens.set(token, tokenData);
-  
   return { email: tokenData.email, valid: true };
 }
 
-/**
- * Get password reset URL for email
- */
 export function getResetUrl(token: string): string {
   const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3009";
   return `${frontendUrl}/reset-password?token=${token}`;
 }
 
-/**
- * Clean up expired tokens
- */
-export function cleanupExpiredTokens(): void {
+export async function cleanupExpiredTokens(): Promise<void> {
+  const prisma = getPrismaClient();
+  if (prisma) {
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+    return;
+  }
+
   const now = new Date();
-  
   for (const [token, data] of Array.from(resetTokens.entries())) {
     if (new Date(data.expiresAt) < now) {
       resetTokens.delete(token);
@@ -91,7 +129,8 @@ export function cleanupExpiredTokens(): void {
   }
 }
 
-// Run cleanup every 15 minutes
 if (typeof setInterval !== "undefined") {
-  setInterval(cleanupExpiredTokens, 15 * 60 * 1000); // 15 minutes
+  setInterval(() => {
+    void cleanupExpiredTokens();
+  }, 15 * 60 * 1000);
 }

@@ -64,22 +64,20 @@ export async function signUp(data: SignUpRequest): Promise<{
     role: data.role || "player",
   });
   
+  const verificationToken = await createVerificationToken(email);
+
   // Update member with password hash, email verification status, and role
-  // Email verification is disabled - automatically mark as verified
   const updatedMember = await updateMember(member.id, {
     passwordHash,
-    emailVerified: true, // Auto-verify email (email verification disabled)
+    emailVerified: false,
     role: data.role || "player",
   } as any);
   
-  // Email verification is disabled - skip sending verification email
-  // (Keeping code commented for future use if needed)
-  // const verificationToken = createVerificationToken(email);
-  // await sendVerificationEmail(
-  //   email,
-  //   `${data.firstName} ${data.lastName}`,
-  //   verificationToken
-  // );
+  await sendVerificationEmail(
+    email,
+    `${data.firstName} ${data.lastName}`,
+    verificationToken
+  );
   
   // Send welcome email (optional - can be disabled if not using email service)
   // await sendWelcomeEmail(email, `${data.firstName} ${data.lastName}`);
@@ -95,9 +93,9 @@ export async function signUp(data: SignUpRequest): Promise<{
       lastName: finalMember.lastName,
       email: finalMember.email,
       role: (finalMember as any).role || data.role || "player",
-      emailVerified: true, // Always true since verification is disabled
+      emailVerified: finalMember.emailVerified || false,
     },
-    verificationToken: "", // Not used when email verification is disabled
+    verificationToken,
   };
 }
 
@@ -135,7 +133,7 @@ export async function signIn(data: SignInRequest): Promise<AuthResponse> {
   
   // Create session
   const role = (member as any).role || "player";
-  const session = createSession(member.id, member.email, role);
+  const session = await createSession(member.id, member.email, role);
   
   // Create token
   const token = createToken(session);
@@ -158,7 +156,7 @@ export async function signIn(data: SignInRequest): Promise<AuthResponse> {
  * Verify email with token
  */
 export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
-  const result = verifyEmailToken(token);
+  const result = await verifyEmailToken(token);
   
   if (!result.valid) {
     throw new InvalidVerificationTokenError("Invalid or expired verification token");
@@ -195,7 +193,7 @@ export async function requestPasswordReset(email: string): Promise<{ success: bo
   // Always return success message
   if (member) {
     // Create reset token
-    const resetToken = createResetToken(normalizedEmail);
+    const resetToken = await createResetToken(normalizedEmail);
     
     // Send reset email
     await sendPasswordResetEmail(
@@ -219,7 +217,7 @@ export async function resetPassword(
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
   // Verify reset token
-  const result = verifyResetToken(token);
+  const result = await verifyResetToken(token);
   
   if (!result.valid) {
     throw new InvalidResetTokenError("Invalid or expired reset token");

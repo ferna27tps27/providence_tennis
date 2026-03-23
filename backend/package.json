@@ -6,6 +6,13 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:push": "prisma db push",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:import:json": "tsx scripts/import-json-to-prisma.ts",
+    "db:import:json:dry-run": "tsx scripts/import-json-to-prisma.ts --dry-run",
     "test": "vitest run",
     "test:unit": "vitest run src/__tests__",
     "test:integration": "vitest run tests/integration",
@@ -15,7 +22,8 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
+    "@prisma/client": "^6.5.0",
+    "@google/genai": "^1.30.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
@@ -26,13 +34,15 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.0.0",
     "@types/supertest": "^2.0.16",
+    "supertest": "^6.3.4",
+    "prisma": "^6.5.0",
     "tsx": "^4.19.1",
     "typescript": "^5.4.0",
-    "supertest": "^6.3.4",
     "vitest": "^2.1.8"
   }
 }

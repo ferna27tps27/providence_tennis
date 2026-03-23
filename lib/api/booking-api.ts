@@ -20,7 +20,7 @@ export interface Reservation {
   guestPhone?: string;
   notes?: string;
   createdAt: string;
-  status: "confirmed" | "cancelled";
+  status: "pending_payment" | "confirmed" | "cancelled";
   paymentId?: string;
   paymentStatus?: "pending" | "paid" | "refunded" | "failed";
   paymentAmount?: number;

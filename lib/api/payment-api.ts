@@ -8,7 +8,15 @@ export interface Payment {
   id: string;
   memberId?: string;
   reservationId?: string;
-  type: "court_booking" | "membership" | "other";
+  type:
+    | "court_booking"
+    | "membership"
+    | "lesson_package"
+    | "private_lesson"
+    | "program_fee"
+    | "refund"
+    | "manual_charge"
+    | "other";
   amount: number;
   currency: string;
   status: "pending" | "paid" | "refunded" | "failed" | "cancelled";
@@ -26,7 +34,15 @@ export interface Payment {
 export interface PaymentFilter {
   memberId?: string;
   status?: "pending" | "paid" | "refunded" | "failed" | "cancelled";
-  type?: "court_booking" | "membership" | "other";
+  type?:
+    | "court_booking"
+    | "membership"
+    | "lesson_package"
+    | "private_lesson"
+    | "program_fee"
+    | "refund"
+    | "manual_charge"
+    | "other";
   startDate?: string;
   endDate?: string;
 }

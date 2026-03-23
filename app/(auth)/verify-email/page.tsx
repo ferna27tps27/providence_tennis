@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import EmailVerification from "../../../components/auth/EmailVerification";
 
 export const metadata = {
@@ -8,7 +9,9 @@ export const metadata = {
 export default function VerifyEmailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-primary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <EmailVerification />
+      <Suspense fallback={null}>
+        <EmailVerification />
+      </Suspense>
     </div>
   );
 }

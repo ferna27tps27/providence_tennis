@@ -52,7 +52,10 @@ export interface IMemberRepository {
    * @throws LockError if lock cannot be acquired
    */
   create(
-    member: Omit<Member, "id" | "createdAt" | "lastModified">
+    member: Omit<Member, "id" | "createdAt" | "lastModified" | "memberNumber" | "isActive"> & {
+      memberNumber?: string;
+      isActive?: boolean;
+    }
   ): Promise<Member>;
 
   /**

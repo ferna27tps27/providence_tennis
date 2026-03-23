@@ -201,7 +201,7 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
   };
  
    return (
-     <ProtectedRoute allowedRoles={["admin"]}>
+     <ProtectedRoute allowedRoles={["admin", "owner"]}>
        <DashboardLayout>
          <div className="space-y-6">
            <div>
@@ -259,12 +259,17 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
                    onChange={(event) =>
                      setFilters((prev) => ({
                        ...prev,
-                       status: (event.target.value as "confirmed" | "cancelled") || undefined,
+                       status:
+                         (event.target.value as
+                           | "pending_payment"
+                           | "confirmed"
+                           | "cancelled") || undefined,
                      }))
                    }
                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                  >
                    <option value="">All</option>
+                   <option value="pending_payment">Pending Payment</option>
                    <option value="confirmed">Confirmed</option>
                    <option value="cancelled">Cancelled</option>
                  </select>
@@ -380,7 +385,11 @@ import AdminAIAssistant from "../../../../components/admin/AdminAIAssistant";
                            {reservation.contactEmail || reservation.member?.email || ""}
                          </div>
                        </td>
-                       <td className="py-3 pr-4 capitalize">{reservation.status}</td>
+                       <td className="py-3 pr-4 capitalize">
+                         {reservation.status === "pending_payment"
+                           ? "pending payment"
+                           : reservation.status}
+                       </td>
                        <td className="py-3 pr-4">
                          {reservation.paymentAmount ? (
                            <div>

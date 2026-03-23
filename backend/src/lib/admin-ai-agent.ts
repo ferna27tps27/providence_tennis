@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { FunctionCallingConfigMode, Type } from "@google/genai";
 import {
   getAllReservations,
   getReservationsByDate,
@@ -9,8 +9,12 @@ import {
 import { reservationRepository } from "./repositories/file-reservation-repository";
 import { ConflictError } from "./errors/reservation-errors";
 import { Reservation } from "../types/reservation";
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+import {
+  buildGeminiHistory,
+  getResponseText,
+  normalizeToolArgs,
+  runGeminiFunctionCallingLoop,
+} from "./gemini-client";
 
 const ADMIN_BOOKING_CONTEXT = `
 You are an AI assistant helping tennis club administrators manage court reservations at Providence Tennis Academy.
@@ -125,18 +129,18 @@ export async function chatWithAdminAgent(
             name: "searchReservations",
             description: "Search for reservations by date, court, member name, or booking ID",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date to search (YYYY-MM-DD format). Optional.",
                 },
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Court ID to filter by. Optional.",
                 },
                 searchTerm: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Search term for member name or booking ID. Optional.",
                 },
               },
@@ -146,10 +150,10 @@ export async function chatWithAdminAgent(
             name: "getReservationDetails",
             description: "Get full details of a specific reservation by ID",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 reservationId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "The reservation ID to retrieve",
                 },
               },
@@ -160,14 +164,14 @@ export async function chatWithAdminAgent(
             name: "checkAvailability",
             description: "Check court availability for a specific date",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date to check availability (YYYY-MM-DD)",
                 },
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional: specific court ID to check",
                 },
               },
@@ -178,30 +182,30 @@ export async function chatWithAdminAgent(
             name: "moveReservation",
             description: "Move/reschedule a reservation to a new date, time, or court. ALWAYS check for conflicts first.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 reservationId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "The ID of the reservation to move",
                 },
                 newDate: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New date (YYYY-MM-DD format). Optional if not changing date.",
                 },
                 newTimeStart: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New start time (HH:mm format). Optional if not changing time.",
                 },
                 newTimeEnd: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New end time (HH:mm format). Optional if not changing time.",
                 },
                 newCourtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New court ID. Optional if not changing court.",
                 },
                 notes: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional notes about the change",
                 },
               },
@@ -212,14 +216,14 @@ export async function chatWithAdminAgent(
             name: "cancelReservation",
             description: "Cancel a reservation permanently",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 reservationId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "The ID of the reservation to cancel",
                 },
                 reason: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional reason for cancellation",
                 },
               },
@@ -230,30 +234,30 @@ export async function chatWithAdminAgent(
             name: "overrideConflictAndMove",
             description: "Move a reservation even if there's a conflict (admin override). This will CANCEL the conflicting booking.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 reservationId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "The ID of the reservation to move",
                 },
                 conflictingReservationId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "The ID of the conflicting reservation to cancel",
                 },
                 newDate: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New date (YYYY-MM-DD)",
                 },
                 newTimeStart: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New start time (HH:mm)",
                 },
                 newTimeEnd: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New end time (HH:mm)",
                 },
                 newCourtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "New court ID",
                 },
               },
@@ -271,7 +275,7 @@ export async function chatWithAdminAgent(
             name: "listAllCourts",
             description: "Get a list of all available courts",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {},
             },
           },
@@ -279,49 +283,15 @@ export async function chatWithAdminAgent(
       },
     ] as any;
 
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      tools,
-    });
-
     // Filter and format history
     let filteredHistory = conversationHistory.slice(-15); // Keep more context for admin
     if (filteredHistory.length > 0 && filteredHistory[0].role === "assistant") {
       filteredHistory = filteredHistory.slice(1);
     }
 
-    const history = filteredHistory.map((msg) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
-
-    const historyWithContext = [
-      {
-        role: "user",
-        parts: [{ text: ADMIN_BOOKING_CONTEXT }],
-      },
-      ...history,
-    ];
-
-    const chat = model.startChat({
-      history: historyWithContext,
-      toolConfig: {
-        functionCallingConfig: { mode: "AUTO" },
-      } as any,
-    });
-
     // Tool handler
     const handleFunctionCall = async (call: ToolCall) => {
-      let args: Record<string, any> = {};
-      if (typeof call.args === "string") {
-        try {
-          args = JSON.parse(call.args);
-        } catch {
-          args = {};
-        }
-      } else if (call.args) {
-        args = call.args;
-      }
+      const args = normalizeToolArgs(call.args);
 
       console.log(`[Admin AI] Tool called: ${call.name}`, args);
 
@@ -385,7 +355,7 @@ export async function chatWithAdminAgent(
       // GET RESERVATION DETAILS
       if (call.name === "getReservationDetails") {
         const reservationId = String(args.reservationId || "");
-        const reservation = await reservationRepository.getById(reservationId);
+        const reservation = await reservationRepository.findById(reservationId);
 
         if (!reservation) {
           return { success: false, error: "Reservation not found" };
@@ -419,7 +389,11 @@ export async function chatWithAdminAgent(
         const date = String(args.date || "");
         const courtId = args.courtId ? String(args.courtId) : undefined;
         
-        const availability = await getAvailabilityByDate(date);
+        const availability = (await getAvailabilityByDate(date)) as Array<{
+          courtId: string;
+          courtName: string;
+          slots: Array<{ start: string; end: string; available: boolean }>;
+        }>;
         const filtered = courtId
           ? availability.filter((court) => court.courtId === courtId)
           : availability;
@@ -441,7 +415,7 @@ export async function chatWithAdminAgent(
       // MOVE RESERVATION
       if (call.name === "moveReservation") {
         const reservationId = String(args.reservationId || "");
-        const reservation = await reservationRepository.getById(reservationId);
+        const reservation = await reservationRepository.findById(reservationId);
 
         if (!reservation) {
           return { success: false, error: "Reservation not found" };
@@ -521,7 +495,7 @@ export async function chatWithAdminAgent(
       // CANCEL RESERVATION
       if (call.name === "cancelReservation") {
         const reservationId = String(args.reservationId || "");
-        const reservation = await reservationRepository.getById(reservationId);
+        const reservation = await reservationRepository.findById(reservationId);
 
         if (!reservation) {
           return { success: false, error: "Reservation not found" };
@@ -554,8 +528,8 @@ export async function chatWithAdminAgent(
         const newCourtId = String(args.newCourtId || "");
 
         // Get both reservations
-        const reservation = await reservationRepository.getById(reservationId);
-        const conflicting = await reservationRepository.getById(conflictingId);
+        const reservation = await reservationRepository.findById(reservationId);
+        const conflicting = await reservationRepository.findById(conflictingId);
 
         if (!reservation || !conflicting) {
           return { success: false, error: "One or both reservations not found" };
@@ -615,55 +589,41 @@ export async function chatWithAdminAgent(
 
       return { success: false, error: "Unknown function call" };
     };
+    const contents = [
+      ...buildGeminiHistory(filteredHistory, ADMIN_BOOKING_CONTEXT),
+      {
+        role: "user",
+        parts: [{ text: message }],
+      },
+    ];
 
-    // Extract function calls from response
-    const extractFunctionCalls = (response: any): ToolCall[] => {
-      if (typeof response.functionCalls === "function") {
-        return response.functionCalls() || [];
-      }
-
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      return parts
-        .filter((part: any) => part.functionCall)
-        .map((part: any) => part.functionCall);
-    };
-
-    // Send message and handle tool calls
-    let result = await chat.sendMessage(message);
-    let response = await result.response;
-
-    let toolCalls = extractFunctionCalls(response);
     let conflictDetected: ConflictInfo | undefined;
-
-    while (toolCalls.length > 0) {
-      for (const call of toolCalls) {
+    const { response } = await runGeminiFunctionCallingLoop({
+      model: modelName,
+      contents,
+      tools,
+      config: {
+        toolConfig: {
+          functionCallingConfig: {
+            mode: FunctionCallingConfigMode.AUTO,
+          },
+        },
+      },
+      handleToolCall: async (call) => {
         const toolResult = await handleFunctionCall(call);
-        
-        // Check if we hit a conflict
-        if (toolResult.conflict) {
+        if ((toolResult as any).conflict) {
           conflictDetected = {
             hasConflict: true,
-            conflictingBooking: toolResult.conflictingBooking,
-            message: toolResult.conflictMessage,
+            conflictingBooking: (toolResult as any).conflictingBooking,
+            message: (toolResult as any).conflictMessage,
           };
         }
-
-        result = await chat.sendMessage([
-          {
-            functionResponse: {
-              name: call.name,
-              response: toolResult,
-            },
-          },
-        ]);
-        response = await result.response;
-      }
-
-      toolCalls = extractFunctionCalls(response);
-    }
+        return toolResult;
+      },
+    });
 
     return {
-      response: response.text(),
+      response: getResponseText(response),
       needsConfirmation: conflictDetected?.hasConflict || false,
       conflictInfo: conflictDetected,
     };

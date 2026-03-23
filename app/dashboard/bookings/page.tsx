@@ -72,7 +72,7 @@ export default function BookingsPage() {
     const start = bookingStart(booking);
 
     if (filter === "upcoming") {
-      return start >= now && booking.status === "confirmed";
+      return start >= now && (booking.status === "confirmed" || booking.status === "pending_payment");
     }
     if (filter === "past") {
       return start < now && booking.status === "confirmed";

@@ -22,7 +22,7 @@ export interface CourtReservationProps {
   prefill?: CourtReservationPrefill;
 }
 
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(
   /\/$/,
   ""
 );
@@ -60,6 +60,35 @@ const defaultReservationData = (prefill?: CourtReservationPrefill): ReservationR
   notes: "",
 });
 
+function formatTimeLabel(time?: string): string {
+  if (!time) return "";
+
+  try {
+    const [hours, minutes] = time.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours % 12 || 12;
+    return `${displayHour}:${String(minutes).padStart(2, "0")} ${period}`;
+  } catch {
+    return time;
+  }
+}
+
+function getDurationLabel(start?: string, end?: string): string {
+  if (!start || !end) return "1 hour";
+
+  const [startHour, startMinute] = start.split(":").map(Number);
+  const [endHour, endMinute] = end.split(":").map(Number);
+  const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+  if (minutes <= 0) return "1 hour";
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+
+  return `${minutes} min`;
+}
+
 export default function CourtReservation({
   variant = "default",
   prefill,
@@ -83,6 +112,22 @@ export default function CourtReservation({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
+
+  const releasePendingReservation = async (id = reservationId) => {
+    if (!id || paymentComplete) return;
+
+    try {
+      await fetch(buildApiUrl(`/api/reservations/${id}`), {
+        method: "DELETE",
+      });
+    } catch (cleanupError) {
+      console.error("Error releasing pending reservation:", cleanupError);
+    } finally {
+      setReservationId((current) => (current === id ? null : current));
+      setClientSecret(null);
+      setPaymentIntentId(null);
+    }
+  };
 
   // Sync prefill when it changes (e.g. user loads after mount)
   useEffect(() => {
@@ -253,6 +298,7 @@ export default function CourtReservation({
     e.preventDefault();
     setLoading(true);
     setError(null);
+    let createdReservationId: string | null = null;
 
     try {
       // Step 1: Create reservation to lock the time slot
@@ -261,6 +307,7 @@ export default function CourtReservation({
         setLoading(false);
         return;
       }
+      createdReservationId = resId;
 
       // Step 2: Create payment intent
       const courtName = selectedCourtData?.courtName || "Court";
@@ -279,6 +326,7 @@ export default function CourtReservation({
       setStep("payment");
       setError(null);
     } catch (error: any) {
+      await releasePendingReservation(createdReservationId);
       console.error("Error setting up payment:", error);
       setError({
         message: error.message || "Failed to set up payment. Please try again.",
@@ -318,6 +366,7 @@ export default function CourtReservation({
   };
 
   const handlePaymentError = (message: string) => {
+    releasePendingReservation();
     setError({
       message: message || "Payment failed. Please try again.",
       type: "error",
@@ -331,6 +380,16 @@ export default function CourtReservation({
   );
 
   const availableSlots = selectedCourtData?.slots.filter((s) => s.available) || [];
+  const reservationDateLabel = format(selectedDate, "EEEE, MMMM d, yyyy");
+  const selectedDuration = getDurationLabel(selectedTimeSlot?.start, selectedTimeSlot?.end);
+  const steps = user
+    ? ["date", "court", "details", "payment", "confirmation"]
+    : ["date", "court", "details", "confirmation"];
+  const stepLabels = user
+    ? ["Date", "Court", "Details", "Payment", "Confirm"]
+    : ["Date", "Court", "Details", "Confirm"];
+  const currentStepIndex = steps.indexOf(step);
+  const showBookingSummary = Boolean(selectedCourtData && selectedTimeSlot);
 
   const Wrapper = isDashboard ? "div" : "section";
   const wrapperProps = isDashboard
@@ -361,20 +420,16 @@ export default function CourtReservation({
 
         {/* Progress Indicator */}
         <div className="mb-8 max-w-3xl mx-auto">
-          <div className="flex items-center justify-between">
-            {(user ? ["Date", "Court", "Details", "Payment", "Confirm"] : ["Date", "Court", "Details", "Confirm"]).map((label, index) => {
-              const steps = user
-                ? ["date", "court", "details", "payment", "confirmation"]
-                : ["date", "court", "details", "confirmation"];
-              const currentStepIndex = steps.indexOf(step);
+          <div className="flex items-center justify-between gap-2">
+            {stepLabels.map((label, index) => {
               const isActive = index === currentStepIndex;
               const isCompleted = index < currentStepIndex;
 
               return (
-                <div key={label} className="flex items-center flex-1">
+                <div key={label} className="flex items-center flex-1 min-w-0">
                   <div className="flex flex-col items-center flex-1">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
+                      className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold transition-all ${
                         isCompleted
                           ? "bg-primary-600 text-white"
                           : isActive
@@ -385,16 +440,16 @@ export default function CourtReservation({
                       {isCompleted ? "✓" : index + 1}
                     </div>
                     <span
-                      className={`mt-2 text-sm font-medium ${
+                      className={`mt-2 text-center text-xs sm:text-sm font-medium ${
                         isActive ? "text-primary-600" : "text-gray-500"
                       }`}
                     >
                       {label}
                     </span>
                   </div>
-                  {index < (user ? 4 : 3) && (
+                  {index < stepLabels.length - 1 && (
                     <div
-                      className={`h-1 flex-1 mx-2 transition-all ${
+                      className={`hidden sm:block h-1 flex-1 mx-2 transition-all ${
                         isCompleted ? "bg-primary-600" : "bg-gray-300"
                       }`}
                     />
@@ -462,7 +517,17 @@ export default function CourtReservation({
                 exit={{ opacity: 0, x: 20 }}
                 className="card bg-white"
               >
-                <h3 className="text-2xl font-bold mb-6">Select a Date</h3>
+                <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold">Select a Date</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Choose a future date to see live court availability.
+                    </p>
+                  </div>
+                  <div className="rounded-full bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700">
+                    Selected: {format(selectedDate, "EEE, MMM d")}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3">
                   {futureDates.map((date) => {
                     const isSelected = isSameDay(date, selectedDate);
@@ -523,9 +588,10 @@ export default function CourtReservation({
               >
                 <div className="card bg-white">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold">
-                      Select Court & Time - {format(selectedDate, "EEEE, MMMM d")}
-                    </h3>
+                    <div>
+                      <h3 className="text-2xl font-bold">Select Court & Time</h3>
+                      <p className="mt-1 text-sm text-gray-500">{reservationDateLabel}</p>
+                    </div>
                     <button
                       onClick={() => setStep("date")}
                       className="text-primary-600 hover:text-primary-700 font-medium"
@@ -541,6 +607,11 @@ export default function CourtReservation({
                     </div>
                   ) : (
                     <div className="space-y-6">
+                      {availability?.availability.every((court) => court.slots.every((slot) => !slot.available)) && (
+                        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                          There are no open slots on this date. Try another day to see more options.
+                        </div>
+                      )}
                       {availability?.availability.map((court) => {
                         const availableCount = court.slots.filter(
                           (s) => s.available
@@ -562,6 +633,11 @@ export default function CourtReservation({
                                 </h4>
                                 <p className="text-sm text-gray-600 capitalize">
                                   {court.courtType} Court
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  {availableCount === 0
+                                    ? "No open times"
+                                    : `${availableCount} open time${availableCount === 1 ? "" : "s"} available`}
                                 </p>
                               </div>
                               <button
@@ -631,136 +707,172 @@ export default function CourtReservation({
                     ← Back to Selection
                   </button>
                   <h3 className="text-2xl font-bold">Your Information</h3>
-                  <div className="mt-4 p-4 bg-primary-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Date:</span>{" "}
-                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Court:</span>{" "}
-                      {selectedCourtData?.courtName}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Time:</span>{" "}
-                      {selectedTimeSlot?.start} - {selectedTimeSlot?.end}
-                    </p>
-                  </div>
-                  {user ? (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-700">Court Booking - 1 Hour</span>
-                        <span className="text-lg font-bold text-primary-700">${COURT_BOOKING_PRICE.toFixed(2)}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        You will be taken to a secure payment page after filling in your details.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600">
-                        <span className="font-semibold">Pricing &amp; policy:</span>{" "}
-                        Payment and cancellation policy apply. Contact the front desk or check your membership for current rates.
-                      </p>
-                    </div>
-                  )}
+                  <p className="mt-2 text-sm text-gray-500">
+                    Confirm who this reservation is for and review the details before finishing checkout.
+                  </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={reservationData.customerName}
-                      onChange={(e) =>
-                        setReservationData({
-                          ...reservationData,
-                          customerName: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="John Doe"
-                    />
+                <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
+                  <div className="space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={reservationData.customerName}
+                          onChange={(e) =>
+                            setReservationData({
+                              ...reservationData,
+                              customerName: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="John Doe"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Email *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={reservationData.customerEmail}
+                          onChange={(e) =>
+                            setReservationData({
+                              ...reservationData,
+                              customerEmail: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="john@example.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Phone *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={reservationData.customerPhone}
+                          onChange={(e) =>
+                            setReservationData({
+                              ...reservationData,
+                              customerPhone: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="(401) 555-1234"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Notes (Optional)
+                      </label>
+                      <textarea
+                        value={reservationData.notes}
+                        onChange={(e) =>
+                          setReservationData({
+                            ...reservationData,
+                            notes: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                        placeholder="Any special requests or notes..."
+                      />
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setStep("court")}
+                        className="btn-secondary flex-1"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading
+                          ? "Processing..."
+                          : user
+                          ? `Continue to Payment ($${COURT_BOOKING_PRICE.toFixed(2)})`
+                          : "Confirm Reservation"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={reservationData.customerEmail}
-                      onChange={(e) =>
-                        setReservationData({
-                          ...reservationData,
-                          customerEmail: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="john@example.com"
-                    />
-                  </div>
+                  <aside className="space-y-4">
+                    {showBookingSummary && (
+                      <div className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-semibold text-gray-900">Booking Summary</h4>
+                          {user && (
+                            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary-700 ring-1 ring-primary-100">
+                              Secure checkout
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-4 space-y-3 text-sm text-gray-700">
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-gray-500">Date</span>
+                            <span className="text-right font-medium">{reservationDateLabel}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-gray-500">Court</span>
+                            <span className="text-right font-medium">{selectedCourtData?.courtName}</span>
+                          </div>
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-gray-500">Time</span>
+                            <span className="text-right font-medium">
+                              {formatTimeLabel(selectedTimeSlot?.start)} - {formatTimeLabel(selectedTimeSlot?.end)}
+                            </span>
+                          </div>
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="text-gray-500">Duration</span>
+                            <span className="text-right font-medium">{selectedDuration}</span>
+                          </div>
+                        </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone *
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={reservationData.customerPhone}
-                      onChange={(e) =>
-                        setReservationData({
-                          ...reservationData,
-                          customerPhone: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="(401) 555-1234"
-                    />
-                  </div>
+                        <div className="mt-4 rounded-xl bg-white p-4 ring-1 ring-primary-100">
+                          {user ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-gray-700">Court booking</span>
+                              <span className="text-xl font-bold text-primary-700">${COURT_BOOKING_PRICE.toFixed(2)}</span>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-600">
+                              Payment and cancellation policy apply. Contact the front desk or check your membership for current rates.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Notes (Optional)
-                    </label>
-                    <textarea
-                      value={reservationData.notes}
-                      onChange={(e) =>
-                        setReservationData({
-                          ...reservationData,
-                          notes: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                      placeholder="Any special requests or notes..."
-                    />
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setStep("court")}
-                      className="btn-secondary flex-1"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading
-                        ? "Processing..."
-                        : user
-                        ? `Continue to Payment ($${COURT_BOOKING_PRICE.toFixed(2)})`
-                        : "Confirm Reservation"}
-                    </button>
-                  </div>
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">What happens next</h4>
+                      <div className="mt-3 space-y-2">
+                        <p>1. We hold your selected time while you finish this step.</p>
+                        {user ? (
+                          <p>2. You complete payment securely through Stripe before the booking is finalized.</p>
+                        ) : (
+                          <p>2. Your reservation is submitted and the front desk can follow up if needed.</p>
+                        )}
+                        <p>3. Your booking will appear in your account once confirmed.</p>
+                      </div>
+                    </div>
+                  </aside>
                 </form>
               </motion.div>
             )}
@@ -782,34 +894,58 @@ export default function CourtReservation({
                     ← Back to Details
                   </button>
                   <h3 className="text-2xl font-bold">Payment</h3>
-                  <div className="mt-4 p-4 bg-primary-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Date:</span>{" "}
-                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Court:</span>{" "}
-                      {selectedCourtData?.courtName}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Time:</span>{" "}
-                      {selectedTimeSlot?.start} - {selectedTimeSlot?.end}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Name:</span>{" "}
-                      {reservationData.customerName}
-                    </p>
-                  </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Review your booking on the right and complete payment securely below.
+                  </p>
                 </div>
 
-                <StripePaymentForm
-                  clientSecret={clientSecret}
-                  amount={COURT_BOOKING_PRICE}
-                  onSuccess={handlePaymentSuccess}
-                  onError={handlePaymentError}
-                  onBack={() => setStep("details")}
-                  loading={loading}
-                />
+                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                  <StripePaymentForm
+                    clientSecret={clientSecret}
+                    amount={COURT_BOOKING_PRICE}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentError}
+                    onBack={async () => {
+                      await releasePendingReservation();
+                      setStep("details");
+                    }}
+                    loading={loading}
+                  />
+
+                  <aside className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
+                    <h4 className="text-lg font-semibold text-gray-900">Reservation Details</h4>
+                    <div className="mt-4 space-y-3 text-sm text-gray-700">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-gray-500">Date</span>
+                        <span className="text-right font-medium">{reservationDateLabel}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-gray-500">Court</span>
+                        <span className="text-right font-medium">{selectedCourtData?.courtName}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-gray-500">Time</span>
+                        <span className="text-right font-medium">
+                          {formatTimeLabel(selectedTimeSlot?.start)} - {formatTimeLabel(selectedTimeSlot?.end)}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-gray-500">Booked for</span>
+                        <span className="text-right font-medium">{reservationData.customerName}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-xl bg-white p-4 ring-1 ring-primary-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Total due now</span>
+                        <span className="text-2xl font-bold text-primary-700">${COURT_BOOKING_PRICE.toFixed(2)}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        This time is held while you complete payment. Going back releases the hold.
+                      </p>
+                    </div>
+                  </aside>
+                </div>
               </motion.div>
             )}
 
@@ -830,7 +966,7 @@ export default function CourtReservation({
                     ? "Your court has been booked and payment has been processed successfully."
                     : "Your court reservation has been successfully booked."}
                 </p>
-                <div className="bg-white rounded-lg p-6 mb-6 text-left max-w-md mx-auto">
+                <div className="bg-white rounded-2xl p-6 mb-6 text-left max-w-xl mx-auto shadow-sm ring-1 ring-primary-100">
                   <p className="text-sm text-gray-600 mb-2">
                     <span className="font-semibold">Reservation ID:</span>{" "}
                     {reservationId}
@@ -855,9 +991,16 @@ export default function CourtReservation({
                     </div>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 mb-6">
-                  A confirmation email has been sent to {reservationData.customerEmail}
-                </p>
+                <div className="mx-auto mb-6 max-w-xl rounded-2xl border border-gray-200 bg-gray-50 p-5 text-left">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">What to do next</h4>
+                  <div className="mt-3 space-y-2 text-sm text-gray-600">
+                    <p>Arrive a few minutes early to check in and get settled on court.</p>
+                    <p>Your reservation is saved under your account so you can review or cancel it later if needed.</p>
+                    <p>
+                      Contact email on file: <span className="font-medium text-gray-800">{reservationData.customerEmail}</span>
+                    </p>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-3 justify-center">
                   {isDashboard && (
                     <>
@@ -873,12 +1016,18 @@ export default function CourtReservation({
                       >
                         Back to Dashboard
                       </Link>
+                      <Link
+                        href="/dashboard/payments"
+                        className="btn-secondary text-center"
+                      >
+                        View Payment History
+                      </Link>
                     </>
                   )}
                   <button
                     onClick={() => {
                       setStep("date");
-                      setSelectedDate(new Date());
+                      setSelectedDate(addDays(new Date(), 1));
                       setSelectedCourt("");
                       setSelectedTimeSlot(null);
                       setReservationData(defaultReservationData(prefill));

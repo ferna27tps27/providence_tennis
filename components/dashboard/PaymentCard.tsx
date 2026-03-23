@@ -6,7 +6,15 @@ import { format } from "date-fns";
 interface PaymentCardProps {
   payment: {
     id: string;
-    type: "court_booking" | "membership" | "other";
+    type:
+      | "court_booking"
+      | "membership"
+      | "lesson_package"
+      | "private_lesson"
+      | "program_fee"
+      | "refund"
+      | "manual_charge"
+      | "other";
     amount: number;
     currency: string;
     status: "pending" | "paid" | "refunded" | "failed" | "cancelled";
@@ -57,6 +65,16 @@ export default function PaymentCard({ payment, onViewInvoice }: PaymentCardProps
         return "Court Booking";
       case "membership":
         return "Membership";
+      case "lesson_package":
+        return "Lesson Package";
+      case "private_lesson":
+        return "Private Lesson";
+      case "program_fee":
+        return "Program Fee";
+      case "manual_charge":
+        return "Manual Charge";
+      case "refund":
+        return "Refund";
       default:
         return "Other";
     }

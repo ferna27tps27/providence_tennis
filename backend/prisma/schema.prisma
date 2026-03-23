@@ -1,0 +1,471 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  COACH
+  PLAYER
+  PARENT
+}
+
+enum CourtSurface {
+  CLAY
+  HARD
+  INDOOR
+}
+
+enum ReservationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentType {
+  COURT_BOOKING
+  MEMBERSHIP
+  LESSON_PACKAGE
+  PRIVATE_LESSON
+  PROGRAM_FEE
+  REFUND
+  MANUAL_CHARGE
+  OTHER
+}
+
+enum LessonStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ProgramStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  WAITLISTED
+  CANCELLED
+  COMPLETED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum LessonPackageStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  CANCELLED
+}
+
+enum TrainingPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  memberNumber         String?             @unique
+  firstName            String
+  lastName             String
+  email                String              @unique
+  phone                String?
+  isActive             Boolean             @default(true)
+  role                 UserRole            @default(PLAYER)
+  penaltyCancellations Int                 @default(0)
+  unsubscribeEmail     Boolean             @default(false)
+  passwordHash         String?
+  emailVerified        Boolean             @default(false)
+  dateOfBirth          String?
+  gender               String?
+  address              String?
+  notes                String?
+  ntrpRating           String?
+  ustaNumber           String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @default(now())
+  playerProfile        PlayerProfile?
+  coachProfile         CoachProfile?
+  bookedReservations   CourtReservation[]  @relation("BookedCourtReservations")
+  playerReservations   CourtReservation[]  @relation("PlayerCourtReservations")
+  memberPayments       Payment[]           @relation("MemberPayments")
+  playerJournalEntries JournalEntry[]      @relation("PlayerJournalEntries")
+  coachJournalEntries  JournalEntry[]      @relation("CoachJournalEntries")
+  authoredJournalEntries JournalEntry[]    @relation("AuthoredJournalEntries")
+  playerTrainingPlans  TrainingPlan[]      @relation("PlayerTrainingPlans")
+  createdTrainingPlans TrainingPlan[]      @relation("CreatedTrainingPlans")
+  coachedLessons       PrivateLesson[]     @relation("CoachPrivateLessons")
+  playerLessons        PrivateLesson[]     @relation("PlayerPrivateLessons")
+  coachedPrograms      RecurringProgram[]  @relation("CoachPrograms")
+  coachedProgramSessions ProgramSession[]  @relation("CoachProgramSessions")
+  programEnrollments   ProgramEnrollment[]
+  memberships          Membership[]
+  ownedLessonPackages  LessonPackage[]     @relation("LessonPackagePlayers")
+  coachedLessonPackages LessonPackage[]    @relation("LessonPackageCoaches")
+  processedRefunds     Refund[]
+  auditLogs            AuditLog[]
+  authSessions         AuthSession[]
+  verificationTokens   VerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
+}
+
+model AuthSession {
+  id        String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  role      UserRole
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, revokedAt, expiresAt])
+}
+
+model PlayerProfile {
+  userId       String @id
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes        String?
+}
+
+model CoachProfile {
+  userId             String @id
+  user               User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                String?
+  specialties        String[]
+  isActive           Boolean @default(true)
+  defaultHourlyRate  Int?
+}
+
+model Court {
+  id                String             @id @default(cuid())
+  name              String
+  type              CourtSurface
+  available         Boolean            @default(true)
+  locationLabel     String?
+  opensAt           String?
+  closesAt          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now())
+  reservations      CourtReservation[]
+  privateLessons    PrivateLesson[]
+  recurringPrograms RecurringProgram[]
+  programSessions   ProgramSession[]
+}
+
+model CourtReservation {
+  id             String            @id @default(cuid())
+  courtId        String
+  court          Court             @relation(fields: [courtId], references: [id], onDelete: Restrict)
+  courtName      String?
+  reservationDate String
+  startTime      String
+  endTime        String
+  bookedByUserId String?
+  bookedByUser   User?             @relation("BookedCourtReservations", fields: [bookedByUserId], references: [id], onDelete: SetNull)
+  playerUserId   String?
+  playerUser     User?             @relation("PlayerCourtReservations", fields: [playerUserId], references: [id], onDelete: SetNull)
+  legacyMemberId String?
+  guestName      String?
+  guestEmail     String?
+  guestPhone     String?
+  customerName   String?
+  customerEmail  String?
+  customerPhone  String?
+  notes          String?
+  status         ReservationStatus @default(CONFIRMED)
+  paymentStatus  PaymentStatus?
+  paymentAmount  Int?
+  paymentId      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @default(now())
+  journals       JournalEntry[]
+  payments       Payment[]
+
+  @@index([courtId, reservationDate, startTime, endTime])
+  @@index([playerUserId, reservationDate])
+}
+
+model PrivateLesson {
+  id                 String        @id @default(cuid())
+  courtId            String
+  court              Court         @relation(fields: [courtId], references: [id], onDelete: Restrict)
+  coachUserId        String
+  coachUser          User          @relation("CoachPrivateLessons", fields: [coachUserId], references: [id], onDelete: Restrict)
+  playerUserId       String
+  playerUser         User          @relation("PlayerPrivateLessons", fields: [playerUserId], references: [id], onDelete: Restrict)
+  scheduledDate      String
+  startTime          String
+  endTime            String
+  status             LessonStatus  @default(SCHEDULED)
+  lessonType         String?
+  priceCents         Int?
+  notes              String?
+  packageRedemption  LessonPackageRedemption?
+  journals           JournalEntry[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @default(now())
+
+  @@index([coachUserId, scheduledDate])
+  @@index([playerUserId, scheduledDate])
+  @@index([courtId, scheduledDate, startTime, endTime])
+}
+
+model RecurringProgram {
+  id              String              @id @default(cuid())
+  name            String
+  coachUserId     String
+  coachUser       User                @relation("CoachPrograms", fields: [coachUserId], references: [id], onDelete: Restrict)
+  courtId         String?
+  court           Court?              @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  weekday         Int
+  startTime       String
+  endTime         String
+  capacity        Int
+  priceCents      Int?
+  startsOn        String
+  endsOn          String?
+  status          ProgramStatus       @default(ACTIVE)
+  description     String?
+  enrollments     ProgramEnrollment[]
+  sessions        ProgramSession[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @default(now())
+}
+
+model ProgramEnrollment {
+  id           String           @id @default(cuid())
+  programId    String
+  program      RecurringProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  playerUserId String
+  playerUser   User             @relation(fields: [playerUserId], references: [id], onDelete: Cascade)
+  status       EnrollmentStatus @default(ACTIVE)
+  joinedAt     DateTime         @default(now())
+  endedAt      DateTime?
+
+  @@unique([programId, playerUserId])
+}
+
+model ProgramSession {
+  id             String           @id @default(cuid())
+  programId      String
+  program        RecurringProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  sessionDate    String
+  courtId        String?
+  court          Court?           @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  coachUserId    String?
+  coachUser      User?            @relation("CoachProgramSessions", fields: [coachUserId], references: [id], onDelete: SetNull)
+  startTime      String
+  endTime        String
+  status         LessonStatus     @default(SCHEDULED)
+  notes          String?
+  journals       JournalEntry[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now())
+
+  @@index([programId, sessionDate])
+}
+
+model JournalEntry {
+  id                  String             @id @default(cuid())
+  playerId            String
+  player              User               @relation("PlayerJournalEntries", fields: [playerId], references: [id], onDelete: Restrict)
+  coachId             String
+  coach               User               @relation("CoachJournalEntries", fields: [coachId], references: [id], onDelete: Restrict)
+  createdById         String?
+  createdBy           User?              @relation("AuthoredJournalEntries", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByLabel      String?
+  courtReservationId  String?
+  courtReservation    CourtReservation?  @relation(fields: [courtReservationId], references: [id], onDelete: SetNull)
+  privateLessonId     String?
+  privateLesson       PrivateLesson?     @relation(fields: [privateLessonId], references: [id], onDelete: SetNull)
+  programSessionId    String?
+  programSession      ProgramSession?    @relation(fields: [programSessionId], references: [id], onDelete: SetNull)
+  legacyReservationId String?
+  sessionDate         String
+  sessionTime         String?
+  summary             String
+  areasWorkedOn       String[]
+  pointersForNextSession String
+  additionalNotes     String?
+  playerReflection    String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now())
+
+  @@index([playerId, sessionDate])
+  @@index([coachId, sessionDate])
+}
+
+model TrainingPlan {
+  id                  String             @id @default(cuid())
+  playerId            String
+  player              User               @relation("PlayerTrainingPlans", fields: [playerId], references: [id], onDelete: Restrict)
+  createdByUserId     String?
+  createdByUser       User?              @relation("CreatedTrainingPlans", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByLabel      String?
+  focusAreas          String[]
+  strengths           String[]
+  areasForImprovement String[]
+  recommendations     String
+  suggestedDrills     String[]
+  weeklyGoals         String[]
+  progressNotes       String?
+  sourceJournalIds    Json?
+  sessionCount        Int                @default(0)
+  lastReviewDate      DateTime?
+  version             Int                @default(1)
+  status              TrainingPlanStatus @default(DRAFT)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now())
+
+  @@index([playerId, createdAt])
+}
+
+model Membership {
+  id                   String           @id @default(cuid())
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName             String
+  billingPeriod        BillingPeriod
+  priceCents           Int
+  status               MembershipStatus @default(ACTIVE)
+  startsOn             String
+  endsOn               String?
+  notes                String?
+  paymentId            String?
+  stripeSubscriptionId String?          @unique
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @default(now())
+}
+
+model LessonPackage {
+  id                String               @id @default(cuid())
+  playerUserId      String
+  playerUser        User                 @relation("LessonPackagePlayers", fields: [playerUserId], references: [id], onDelete: Cascade)
+  coachUserId       String?
+  coachUser         User?                @relation("LessonPackageCoaches", fields: [coachUserId], references: [id], onDelete: SetNull)
+  packageName       String
+  sessionCountTotal Int
+  sessionCountUsed  Int                  @default(0)
+  priceCents        Int
+  expiresOn         String?
+  status            LessonPackageStatus  @default(ACTIVE)
+  notes             String?
+  paymentId         String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @default(now())
+  redemptions       LessonPackageRedemption[]
+}
+
+model LessonPackageRedemption {
+  id               String         @id @default(cuid())
+  lessonPackageId  String
+  lessonPackage    LessonPackage  @relation(fields: [lessonPackageId], references: [id], onDelete: Cascade)
+  privateLessonId  String         @unique
+  privateLesson    PrivateLesson  @relation(fields: [privateLessonId], references: [id], onDelete: Cascade)
+  sessionsUsed     Int            @default(1)
+  redeemedAt       DateTime       @default(now())
+}
+
+model Payment {
+  id                    String          @id @default(cuid())
+  memberId              String?
+  member                User?           @relation("MemberPayments", fields: [memberId], references: [id], onDelete: SetNull)
+  reservationId         String?
+  reservation           CourtReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  type                  PaymentType
+  amount                Int
+  currency              String          @default("usd")
+  status                PaymentStatus   @default(PENDING)
+  stripePaymentIntentId String?         @unique
+  stripeChargeId        String?         @unique
+  description           String?
+  metadata              Json?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @default(now())
+  paidAt                DateTime?
+  refundedAt            DateTime?
+  refundAmount          Int?
+  refunds               Refund[]
+
+  @@index([memberId, createdAt])
+  @@index([reservationId])
+}
+
+model Refund {
+  id                  String    @id @default(cuid())
+  paymentId           String
+  payment             Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountCents         Int
+  reason              String?
+  stripeRefundId      String?   @unique
+  processedByUserId   String?
+  processedByUser     User?     @relation(fields: [processedByUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime  @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String
+  beforeJson  Json?
+  afterJson   Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}

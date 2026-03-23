@@ -14,7 +14,7 @@ export default function SignUpForm() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "player" as "player" | "coach" | "parent" | "admin",
+    role: "player" as "player" | "coach" | "parent" | "admin" | "owner",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);

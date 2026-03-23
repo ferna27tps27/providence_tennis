@@ -11,18 +11,16 @@ import {
   RefundError,
 } from "../errors/payment-errors";
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
+function getStripeClient(): Stripe {
+  const secretKey = process.env.STRIPE_SECRET_KEY || "";
+  if (!secretKey) {
+    throw new StripeError("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
+  }
 
-if (!STRIPE_SECRET_KEY) {
-  console.warn("WARNING: STRIPE_SECRET_KEY not set. Payment functionality will not work.");
+  return new Stripe(secretKey, {
+    apiVersion: "2023-10-16",
+  });
 }
-
-// Initialize Stripe client
-export const stripe = STRIPE_SECRET_KEY
-  ? new Stripe(STRIPE_SECRET_KEY, {
-      apiVersion: "2023-10-16",
-    })
-  : null;
 
 /**
  * Create a Stripe PaymentIntent
@@ -30,11 +28,8 @@ export const stripe = STRIPE_SECRET_KEY
 export async function createPaymentIntent(
   request: PaymentIntentRequest
 ): Promise<PaymentIntentResponse> {
-  if (!stripe) {
-    throw new StripeError("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
-  }
-
   try {
+    const stripe = getStripeClient();
     const amount = request.amount;
     if (amount <= 0 || amount < 50) {
       // Minimum $0.50
@@ -79,11 +74,8 @@ export async function confirmPaymentIntent(
   paymentIntentId: string,
   paymentMethodId?: string
 ): Promise<Stripe.PaymentIntent> {
-  if (!stripe) {
-    throw new StripeError("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
-  }
-
   try {
+    const stripe = getStripeClient();
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === "succeeded") {
@@ -122,11 +114,8 @@ export async function confirmPaymentIntent(
 export async function retrievePaymentIntent(
   paymentIntentId: string
 ): Promise<Stripe.PaymentIntent> {
-  if (!stripe) {
-    throw new StripeError("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
-  }
-
   try {
+    const stripe = getStripeClient();
     return await stripe.paymentIntents.retrieve(paymentIntentId);
   } catch (error: any) {
     throw new StripeError(
@@ -144,11 +133,8 @@ export async function createRefund(
   amount?: number,
   reason?: string
 ): Promise<Stripe.Refund> {
-  if (!stripe) {
-    throw new StripeError("Stripe is not configured. Please set STRIPE_SECRET_KEY.");
-  }
-
   try {
+    const stripe = getStripeClient();
     const refundParams: Stripe.RefundCreateParams = {
       charge: chargeId,
     };

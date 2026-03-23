@@ -13,6 +13,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const isOwnerAdmin = user?.role === "admin" || user?.role === "owner";
 
   const baseNavItems = [
     { name: "Overview", href: "/dashboard", icon: "📊" },
@@ -23,10 +24,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Journal", href: "/dashboard/journal", icon: "📝" },
   ];
   const navItems =
-    user?.role === "admin"
+    isOwnerAdmin
       ? [
           ...baseNavItems,
+          { name: "Schedule", href: "/dashboard/schedule", icon: "🗓️" },
+          { name: "Coach AI", href: "/dashboard/coach-ai", icon: "🧠" },
+          { name: "Reports", href: "/dashboard/admin/reports", icon: "📈" },
           { name: "Admin Bookings", href: "/dashboard/admin/bookings", icon: "🛠️" },
+        ]
+      : user?.role === "coach"
+      ? [
+          ...baseNavItems,
+          { name: "Schedule", href: "/dashboard/schedule", icon: "🗓️" },
+          { name: "Coach AI", href: "/dashboard/coach-ai", icon: "🧠" },
         ]
       : baseNavItems;
 
