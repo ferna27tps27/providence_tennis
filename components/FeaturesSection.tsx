@@ -5,23 +5,23 @@ import Link from "next/link";
 
 export default function FeaturesSection() {
   const features = [
-    {
-      title: "SMART COURTS with ELECTRIC LINE CALLING COMING SOON!",
-      subtitle: "Coming March 2026",
-      description:
+      {
+        title: "SMART COURTS with ELECTRIC LINE CALLING COMING SOON!",
+        subtitle: "Coming March 2026",
+        description:
         "PlayReplay is the market-leading all-in-one smart court system, offering unmatched real-time tracking of every ball and player, with performance data, an integrated court and mobile app, and tournament tools.",
       cta: "Find out more about PLAY REPLAY",
-      href: "#",
+      href: "#contact",
       gradient: "from-purple-600 to-indigo-600",
       icon: "⚡",
     },
     {
       title: "LIVE STREAMING on ALL 10 COURTS!",
       subtitle: "We are a PLAY SIGHT Organization!",
-      description:
+        description:
         "Watch your matches live or review them later. All outdoor courts are equipped with PlaySight technology for free live streaming.",
       cta: "PLAY SIGHT LOG IN",
-      href: "#",
+      href: "#reservations",
       gradient: "from-green-600 to-teal-600",
       icon: "📹",
     },

@@ -154,6 +154,19 @@ model AuthSession {
   @@index([userId, revokedAt, expiresAt])
 }
 
+model ContactSubmission {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  message     String
+  status      String   @default("new")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+}
+
 model PlayerProfile {
   userId       String @id
   user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)

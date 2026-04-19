@@ -6,19 +6,19 @@ export default function Footer() {
   const footerLinks = {
     "Junior Tennis": [
       { name: "Junior Tennis", href: "#juniors" },
-      { name: "Summer Camp", href: "#camp" },
+      { name: "Summer Camp", href: "/summer-camp" },
       { name: "Tournaments", href: "#tournaments" },
-      { name: "2026 Memberships", href: "#memberships" },
+      { name: "2026 Memberships", href: "#reservations" },
     ],
     "Adult Tennis": [
       { name: "Adult Tennis", href: "#adults" },
-      { name: "2026 Memberships", href: "#memberships" },
+      { name: "2026 Memberships", href: "#reservations" },
     ],
     "Resources": [
       { name: "Playing Options", href: "#programs" },
       { name: "Locations", href: "#locations" },
       { name: "Staff", href: "#staff" },
-      { name: "Sign In", href: "#login" },
+      { name: "Sign In", href: "/signin" },
     ],
   };
 

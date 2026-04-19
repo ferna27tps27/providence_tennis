@@ -16,6 +16,19 @@ import {
 import { reservationRepository } from "./lib/repositories/file-reservation-repository";
 import { ReservationRequest } from "./types/reservation";
 import {
+  createSummerCampRegistration,
+  listSummerCampRegistrations,
+  updateSummerCampRegistrationPayment,
+} from "./lib/summer-camp-registrations";
+import {
+  SummerCampRegistrationRequest,
+} from "./types/summer-camp-registration";
+import {
+  createContactSubmission,
+  listContactSubmissions,
+} from "./lib/contact-submissions";
+import { ContactSubmissionRequest } from "./types/contact-submission";
+import {
   ConflictError,
   LockError,
   NotFoundError,
@@ -1348,6 +1361,106 @@ app.post("/api/reservations", async (req, res) => {
   }
 });
 
+app.post("/api/summer-camp/registrations", async (req, res) => {
+  try {
+    const body: SummerCampRegistrationRequest = req.body;
+    const registration = await createSummerCampRegistration(body);
+
+    return res.status(201).json({
+      ...registration,
+      message:
+        "Registration received. Our team will review your request and follow up with next steps.",
+    });
+  } catch (error: any) {
+    console.error("Error creating summer camp registration:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+
+    if (error instanceof LockError) {
+      return res.status(503).json({
+        error: "Service temporarily unavailable. Please try again.",
+        code: error.code,
+      });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to create summer camp registration",
+    });
+  }
+});
+
+app.get(
+  "/api/summer-camp/registrations",
+  authenticate,
+  requireRole("coach", "admin"),
+  async (_req, res) => {
+    try {
+      const registrations = await listSummerCampRegistrations();
+      return res.json(registrations);
+    } catch (error: any) {
+      console.error("Error listing summer camp registrations:", error);
+      return res.status(500).json({
+        error: error.message || "Failed to list summer camp registrations",
+      });
+    }
+  }
+);
+
+app.post("/api/contact-submissions", async (req, res) => {
+  try {
+    const body: ContactSubmissionRequest = req.body;
+    const submission = await createContactSubmission(body);
+
+    return res.status(201).json({
+      ...submission,
+      messageText:
+        "Thanks for reaching out. We received your message and will follow up soon.",
+    });
+  } catch (error: any) {
+    console.error("Error creating contact submission:", error);
+
+    if (error instanceof ValidationError) {
+      return res.status(400).json({
+        error: error.message,
+        code: error.code,
+      });
+    }
+
+    if (error instanceof LockError) {
+      return res.status(503).json({
+        error: "Service temporarily unavailable. Please try again.",
+        code: error.code,
+      });
+    }
+
+    return res.status(500).json({
+      error: error.message || "Failed to send message",
+    });
+  }
+});
+
+app.get(
+  "/api/admin/contact-submissions",
+  authenticate,
+  requireRole("admin"),
+  async (_req, res) => {
+    try {
+      const submissions = await listContactSubmissions();
+      return res.json(submissions);
+    } catch (error: any) {
+      console.error("Error listing contact submissions:", error);
+      return res.status(500).json({
+        error: error.message || "Failed to list contact submissions",
+      });
+    }
+  }
+);
+
 app.get("/api/reservations/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -2181,6 +2294,25 @@ app.post("/api/payments/confirm", authenticate, async (req, res) => {
       paymentMethodId,
       reservationId,
     });
+
+    const metadata = payment.metadata || {};
+    if (
+      metadata.category === "summer_camp" &&
+      metadata.registrationId &&
+      payment.status === "paid"
+    ) {
+      try {
+        await updateSummerCampRegistrationPayment(metadata.registrationId, {
+          paymentStatus: "paid",
+          paymentId: payment.id,
+          paymentIntentId: payment.stripePaymentIntentId,
+          paymentAmount: payment.amount,
+          paidAt: payment.paidAt,
+        });
+      } catch (campPaymentError) {
+        console.error("Error syncing summer camp payment to registration:", campPaymentError);
+      }
+    }
 
     return res.json(payment);
   } catch (error: any) {

@@ -151,6 +151,7 @@ export async function createPaymentIntent(
     amount: number; // Amount in dollars (e.g. 40 for $40)
     reservationId?: string;
     description?: string;
+    metadata?: Record<string, string>;
   }
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const response = await fetch(`${API_BASE_URL}/api/payments/create-intent`, {
@@ -164,6 +165,7 @@ export async function createPaymentIntent(
       currency: "usd",
       reservationId: options.reservationId,
       description: options.description || "Court Booking - 1 Hour",
+      metadata: options.metadata,
     }),
   });
 

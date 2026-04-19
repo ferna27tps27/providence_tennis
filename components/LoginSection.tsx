@@ -28,10 +28,9 @@ export default function LoginSection() {
           </motion.div>
 
           <p className="text-lg text-gray-600 mb-8 leading-relaxed max-w-2xl mx-auto">
-            Log into your COURT RESERVE account to make reservations for adult
-            tennis programs, junior tennis programs, and tennis camps, and to
-            discover the latest events in Providence tennis, including tennis
-            lessons!
+            Sign in to your Providence Tennis account to manage reservations,
+            review your programs, and access the latest camp and event
+            information in one place.
           </p>
 
           <motion.div
@@ -41,9 +40,7 @@ export default function LoginSection() {
             transition={{ duration: 0.5, delay: 0.4 }}
           >
             <Link
-              href="https://courteserve.com"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/signin"
               className="btn-primary text-lg inline-flex items-center"
             >
               LOG IN

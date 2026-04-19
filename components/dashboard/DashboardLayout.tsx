@@ -31,6 +31,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           { name: "Coach AI", href: "/dashboard/coach-ai", icon: "🧠" },
           { name: "Reports", href: "/dashboard/admin/reports", icon: "📈" },
           { name: "Admin Bookings", href: "/dashboard/admin/bookings", icon: "🛠️" },
+          { name: "Contact Inbox", href: "/dashboard/admin/contact-submissions", icon: "✉️" },
         ]
       : user?.role === "coach"
       ? [

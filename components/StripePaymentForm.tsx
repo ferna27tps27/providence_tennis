@@ -37,6 +37,7 @@ function getStripePromise(): Promise<Stripe | null> {
 
 interface PaymentFormInnerProps {
   amount: number; // in dollars
+  title: string;
   onSuccess: (paymentIntentId: string) => void;
   onError: (message: string) => void;
   onBack: () => void;
@@ -45,6 +46,7 @@ interface PaymentFormInnerProps {
 
 function PaymentFormInner({
   amount,
+  title,
   onSuccess,
   onError,
   onBack,
@@ -97,9 +99,7 @@ function PaymentFormInner({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="p-4 bg-primary-50 rounded-lg border border-primary-200">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">
-            Court Booking - 1 Hour
-          </span>
+          <span className="text-sm font-medium text-gray-700">{title}</span>
           <span className="text-xl font-bold text-primary-700">
             ${amount.toFixed(2)}
           </span>
@@ -174,6 +174,7 @@ function PaymentFormInner({
 interface StripePaymentFormProps {
   clientSecret: string;
   amount: number; // in dollars
+  title?: string;
   onSuccess: (paymentIntentId: string) => void;
   onError: (message: string) => void;
   onBack: () => void;
@@ -183,6 +184,7 @@ interface StripePaymentFormProps {
 export default function StripePaymentForm({
   clientSecret,
   amount,
+  title = "Payment",
   onSuccess,
   onError,
   onBack,
@@ -254,6 +256,7 @@ export default function StripePaymentForm({
     <Elements stripe={stripePromise} options={elementsOptions}>
       <PaymentFormInner
         amount={amount}
+        title={title}
         onSuccess={onSuccess}
         onError={onError}
         onBack={onBack}

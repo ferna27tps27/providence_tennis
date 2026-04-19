@@ -147,6 +147,9 @@ export default function AdminOverview() {
             <Link href="/dashboard/admin/reports" className="block w-full btn-primary text-center">
               Open Reports
             </Link>
+            <Link href="/dashboard/admin/contact-submissions" className="block w-full btn-secondary text-center">
+              View Contact Inbox
+            </Link>
             <Link href="/dashboard/schedule" className="block w-full btn-secondary text-center">
               Manage Schedule
             </Link>

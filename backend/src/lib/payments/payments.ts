@@ -32,10 +32,23 @@ export async function createPaymentIntent(
   request: PaymentIntentRequest
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   // Determine payment type based on request
+  const metadataType = request.metadata?.type;
   const type: PaymentRequest["type"] = request.reservationId
     ? "court_booking"
-    : request.metadata?.type === "membership"
+    : metadataType === "membership"
     ? "membership"
+    : metadataType === "program_fee"
+    ? "program_fee"
+    : metadataType === "lesson_package"
+    ? "lesson_package"
+    : metadataType === "private_lesson"
+    ? "private_lesson"
+    : metadataType === "manual_charge"
+    ? "manual_charge"
+    : metadataType === "refund"
+    ? "refund"
+    : metadataType === "other"
+    ? "other"
     : "other";
 
   const paymentRequest: PaymentRequest = {

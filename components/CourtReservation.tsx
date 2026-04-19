@@ -903,6 +903,7 @@ export default function CourtReservation({
                   <StripePaymentForm
                     clientSecret={clientSecret}
                     amount={COURT_BOOKING_PRICE}
+                    title="Court Booking - 1 Hour"
                     onSuccess={handlePaymentSuccess}
                     onError={handlePaymentError}
                     onBack={async () => {

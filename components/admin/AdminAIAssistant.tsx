@@ -123,10 +123,14 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+    await sendMessage(input.trim());
+  };
 
-    const userMessage = input.trim();
+  const sendMessage = async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return;
+
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "user", content: messageText }]);
     setIsLoading(true);
 
     try {
@@ -135,7 +139,6 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
         content: msg.content,
       }));
 
-      // Route to appropriate endpoint
       let endpoint: string;
       if (chatMode === "booking" && isAdmin) {
         endpoint = "/api/admin/chat";
@@ -152,7 +155,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            message: userMessage,
+            message: messageText,
             conversationHistory,
           }),
         }
@@ -441,14 +444,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                 {getQuickActions().map((action) => (
                   <button
                     key={action}
-                    onClick={() => {
-                      setInput(action);
-                      // Auto-send after a brief moment
-                      setTimeout(() => {
-                        const fakeEvent = { key: "Enter", shiftKey: false, preventDefault: () => {} };
-                        // We'll just set input and let user click send, or we handle it differently
-                      }, 100);
-                    }}
+                    onClick={() => sendMessage(action)}
                     className="text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-full px-3 py-1.5 hover:bg-primary-100 transition-colors"
                   >
                     {action}
