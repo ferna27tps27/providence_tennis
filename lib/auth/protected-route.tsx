@@ -12,7 +12,7 @@ import { useAuth } from "./auth-context";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireVerified?: boolean;
-  allowedRoles?: Array<"player" | "coach" | "parent" | "admin">;
+  allowedRoles?: Array<"player" | "coach" | "parent" | "admin" | "owner">;
 }
 
 export default function ProtectedRoute({

@@ -3,7 +3,7 @@
  * Analyzes player's journal history and provides personalized training recommendations
  */
 
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { Type } from "@google/genai";
 import { getJournalEntries } from "./journal";
 import { getMember } from "./members";
 import { JournalAnalytics } from "../types/training-plan";
@@ -12,8 +12,12 @@ import {
   getPlayerTrainingPlans,
   getLatestTrainingPlan,
 } from "./repositories/file-training-plan-repository";
+import {
+  buildGeminiHistory,
+  getResponseText,
+  runGeminiFunctionCallingLoop,
+} from "./gemini-client";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
 
 const PLAYER_TRAINING_CONTEXT = `
@@ -170,10 +174,10 @@ const playerTrainingTools: any[] = [
         name: "getPlayerJournalAnalytics",
         description: "Analyzes a player's journal entries to provide statistics about their training sessions, focus areas, and progress trends. Returns frequency of areas worked on, recent focus, coach feedback, and improvement trends.",
         parameters: {
-          type: SchemaType.OBJECT,
+          type: Type.OBJECT,
           properties: {
             playerId: {
-              type: SchemaType.STRING,
+              type: Type.STRING,
               description: "The ID of the player to analyze",
             },
           },
@@ -184,10 +188,10 @@ const playerTrainingTools: any[] = [
         name: "getPlayerProfile",
         description: "Gets basic profile information about a player including name, member number, and join date.",
         parameters: {
-          type: SchemaType.OBJECT,
+          type: Type.OBJECT,
           properties: {
             playerId: {
-              type: SchemaType.STRING,
+              type: Type.STRING,
               description: "The ID of the player",
             },
           },
@@ -198,10 +202,10 @@ const playerTrainingTools: any[] = [
         name: "getPlayerTrainingHistory",
         description: "Retrieves all previous training plans created for the player to track progress over time and avoid repetition.",
         parameters: {
-          type: SchemaType.OBJECT,
+          type: Type.OBJECT,
           properties: {
             playerId: {
-              type: SchemaType.STRING,
+              type: Type.STRING,
               description: "The ID of the player",
             },
           },
@@ -212,49 +216,49 @@ const playerTrainingTools: any[] = [
         name: "createTrainingPlanTemplate",
         description: "Creates a personalized training plan template that can be reviewed by the player's coach. Include focus areas, strengths, areas for improvement, recommendations, suggested drills, and weekly goals.",
         parameters: {
-          type: SchemaType.OBJECT,
+          type: Type.OBJECT,
           properties: {
             playerId: {
-              type: SchemaType.STRING,
+              type: Type.STRING,
               description: "The ID of the player",
             },
             focusAreas: {
-              type: SchemaType.ARRAY,
+              type: Type.ARRAY,
               description: "Main areas to focus on (e.g., ['backhand', 'serve', 'footwork'])",
               items: {
-                type: SchemaType.STRING,
+                type: Type.STRING,
               },
             },
             strengths: {
-              type: SchemaType.ARRAY,
+              type: Type.ARRAY,
               description: "Player's current strengths",
               items: {
-                type: SchemaType.STRING,
+                type: Type.STRING,
               },
             },
             areasForImprovement: {
-              type: SchemaType.ARRAY,
+              type: Type.ARRAY,
               description: "Specific areas that need work",
               items: {
-                type: SchemaType.STRING,
+                type: Type.STRING,
               },
             },
             recommendations: {
-              type: SchemaType.STRING,
+              type: Type.STRING,
               description: "Detailed recommendations and strategy",
             },
             suggestedDrills: {
-              type: SchemaType.ARRAY,
+              type: Type.ARRAY,
               description: "Specific drills to practice",
               items: {
-                type: SchemaType.STRING,
+                type: Type.STRING,
               },
             },
             weeklyGoals: {
-              type: SchemaType.ARRAY,
+              type: Type.ARRAY,
               description: "Achievable weekly goals",
               items: {
-                type: SchemaType.STRING,
+                type: Type.STRING,
               },
             },
           },
@@ -359,17 +363,12 @@ export async function chatWithTrainingAgent(
   conversationHistory: Array<{ role: string; content: string }>,
   playerId: string
 ): Promise<{ response: string }> {
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    tools: playerTrainingTools,
-    systemInstruction: {
-      parts: [{ text: PLAYER_TRAINING_CONTEXT }],
-    },
-  });
-  
   // Filter and format conversation history
   const filteredHistory = conversationHistory
-    .filter(msg => msg.role === "user" || msg.role === "assistant")
+    .filter(
+      (msg): msg is { role: "user" | "assistant"; content: string } =>
+        msg.role === "user" || msg.role === "assistant"
+    )
     .slice(-10); // Keep last 10 messages
   
   // Ensure history starts with user message
@@ -377,46 +376,23 @@ export async function chatWithTrainingAgent(
     filteredHistory.shift();
   }
   
-  // Format history for Gemini
-  const formattedHistory = filteredHistory.map(msg => ({
-    role: msg.role === "assistant" ? "model" : msg.role,
-    parts: [{ text: msg.content }],
-  }));
-  
-  const chat = model.startChat({
-    history: formattedHistory,
+  const contents = [
+    ...buildGeminiHistory(filteredHistory),
+    {
+      role: "user",
+      parts: [{ text: message }],
+    },
+  ];
+
+  const { response } = await runGeminiFunctionCallingLoop({
+    model: modelName,
+    contents,
+    tools: playerTrainingTools,
+    systemInstruction: PLAYER_TRAINING_CONTEXT,
+    handleToolCall: (call) => handleFunctionCall(call, playerId),
   });
   
-  // Send message
-  let result = await chat.sendMessage(message);
-  let response = result.response;
-  
-  // Handle function calls
-  while (response.candidates?.[0]?.content?.parts?.some((part: any) => part.functionCall)) {
-    const functionCalls = response.candidates[0].content.parts.filter(
-      (part: any) => part.functionCall
-    );
-    
-    const functionResponses = await Promise.all(
-      functionCalls.map(async (part: any) => {
-        const functionResult = await handleFunctionCall(part.functionCall, playerId);
-        return {
-          functionResponse: {
-            name: part.functionCall.name,
-            response: functionResult,
-          },
-        };
-      })
-    );
-    
-    // Send function results back to model
-    result = await chat.sendMessage(functionResponses);
-    response = result.response;
-  }
-  
-  const textResponse = response.text();
-  
   return {
-    response: textResponse,
+    response: getResponseText(response),
   };
 }

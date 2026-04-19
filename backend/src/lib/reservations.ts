@@ -9,15 +9,24 @@ import { validateMemberActive, getMember, updateMember } from "./members";
 import { ValidationError } from "./errors/reservation-errors";
 import { getPayment, processRefund } from "./payments/payments";
 import { PaymentNotFoundError, RefundError } from "./errors/payment-errors";
+import { getPrismaClient } from "./db/prisma-client";
+import { syncAllLegacyCourtsToPrisma } from "./db/prisma-legacy-sync";
 
-const resolvedDataDir = process.env.DATA_DIR
-  ? path.isAbsolute(process.env.DATA_DIR)
-    ? process.env.DATA_DIR
-    : path.join(process.cwd(), process.env.DATA_DIR)
-  : path.join(process.cwd(), "data");
-const DATA_DIR = resolvedDataDir;
-const RESERVATIONS_FILE = path.join(DATA_DIR, "reservations.json");
-const COURTS_FILE = path.join(DATA_DIR, "courts.json");
+function getDataDir(): string {
+  return process.env.DATA_DIR
+    ? path.isAbsolute(process.env.DATA_DIR)
+      ? process.env.DATA_DIR
+      : path.join(process.cwd(), process.env.DATA_DIR)
+    : path.join(process.cwd(), "data");
+}
+
+function getReservationsFile(): string {
+  return path.join(getDataDir(), "reservations.json");
+}
+
+function getCourtsFile(): string {
+  return path.join(getDataDir(), "courts.json");
+}
 
 function generateTimeSlots(): Array<{ start: string; end: string }> {
   const slots: Array<{ start: string; end: string }> = [];
@@ -43,16 +52,19 @@ function generateTimeSlots(): Array<{ start: string; end: string }> {
 
 async function ensureDataFiles() {
   try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+    const dataDir = getDataDir();
+    const reservationsFile = getReservationsFile();
+    const courtsFile = getCourtsFile();
+    await fs.mkdir(dataDir, { recursive: true });
 
     try {
-      await fs.access(RESERVATIONS_FILE);
+      await fs.access(reservationsFile);
     } catch {
-      await fs.writeFile(RESERVATIONS_FILE, JSON.stringify([], null, 2));
+      await fs.writeFile(reservationsFile, JSON.stringify([], null, 2));
     }
 
     try {
-      await fs.access(COURTS_FILE);
+      await fs.access(courtsFile);
     } catch {
       const defaultCourts: Court[] = [
         { id: "1", name: "Court 1", type: "clay", available: true },
@@ -66,7 +78,7 @@ async function ensureDataFiles() {
         { id: "9", name: "Court 9", type: "clay", available: true },
         { id: "10", name: "Court 10", type: "clay", available: true },
       ];
-      await fs.writeFile(COURTS_FILE, JSON.stringify(defaultCourts, null, 2));
+      await fs.writeFile(courtsFile, JSON.stringify(defaultCourts, null, 2));
     }
   } catch (error) {
     console.error("Error initializing data files:", error);
@@ -210,12 +222,15 @@ export async function createReservation(
   }
 
   // Prepare reservation data for repository
-  const reservationPayload: Omit<Reservation, "id" | "createdAt" | "status"> = {
+  const shouldHoldForPayment = Boolean(reservationData.memberId) && !paymentId;
+
+  const reservationPayload: Omit<Reservation, "id" | "createdAt"> = {
     courtId: reservationData.courtId,
     courtName: court.name,
     date: reservationData.date,
     timeSlot: reservationData.timeSlot,
     notes: reservationData.notes,
+    status: shouldHoldForPayment ? "pending_payment" : "confirmed",
   };
 
   // Add payment fields (Phase 4)
@@ -223,6 +238,8 @@ export async function createReservation(
     reservationPayload.paymentId = paymentId;
     reservationPayload.paymentStatus = paymentStatus;
     reservationPayload.paymentAmount = paymentAmount;
+  } else if (shouldHoldForPayment) {
+    reservationPayload.paymentStatus = "pending";
   }
 
   // Add member or guest information
@@ -322,9 +339,31 @@ export async function cancelReservation(reservationId: string): Promise<boolean>
 }
 
 export async function getAllCourts(): Promise<Court[]> {
+  const prisma = getPrismaClient();
+
+  if (prisma) {
+    await syncAllLegacyCourtsToPrisma();
+
+    const courts = await prisma.court.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    return courts.map((court) => ({
+      id: court.id,
+      name: court.name,
+      type:
+        court.type === "CLAY"
+          ? "clay"
+          : court.type === "INDOOR"
+            ? "indoor"
+            : "hard",
+      available: court.available,
+    }));
+  }
+
   await ensureDataFiles();
   try {
-    const data = await fs.readFile(COURTS_FILE, "utf-8");
+    const data = await fs.readFile(getCourtsFile(), "utf-8");
     return JSON.parse(data);
   } catch (error) {
     console.error("Error reading courts:", error);
@@ -333,6 +372,30 @@ export async function getAllCourts(): Promise<Court[]> {
 }
 
 export async function getCourt(courtId: string): Promise<Court | null> {
+  const prisma = getPrismaClient();
+
+  if (prisma) {
+    await syncAllLegacyCourtsToPrisma();
+
+    const court = await prisma.court.findUnique({ where: { id: courtId } });
+
+    if (!court) {
+      return null;
+    }
+
+    return {
+      id: court.id,
+      name: court.name,
+      type:
+        court.type === "CLAY"
+          ? "clay"
+          : court.type === "INDOOR"
+            ? "indoor"
+            : "hard",
+      available: court.available,
+    };
+  }
+
   const courts = await getAllCourts();
   return courts.find((c) => c.id === courtId) || null;
 }

@@ -298,7 +298,7 @@ describe("Reservation-Payment Integration Tests (Phase 4)", () => {
       ).rejects.toThrow("Payment type must be 'court_booking'");
     });
 
-    it("should allow reservation without payment (backward compatibility)", async () => {
+    it("should create a pending reservation when a member has not paid yet", async () => {
       const uniqueId = Date.now();
       // Create reservation without payment (use unique date)
       const reservation = await createReservation({
@@ -312,8 +312,9 @@ describe("Reservation-Payment Integration Tests (Phase 4)", () => {
       });
 
       expect(reservation.paymentId).toBeUndefined();
-      expect(reservation.paymentStatus).toBeUndefined();
+      expect(reservation.paymentStatus).toBe("pending");
       expect(reservation.paymentAmount).toBeUndefined();
+      expect(reservation.status).toBe("pending_payment");
     });
   });
 

@@ -25,7 +25,7 @@ export default function ProgramsShowcase() {
       alt: "Two women enjoying a game of tennis outdoors",
     },
     {
-      id: "competition",
+      id: "tournaments",
       title: "COMPETITION",
       description: "Tournaments and competitive play opportunities",
       gradient: "from-purple-500 to-pink-600",
@@ -36,7 +36,7 @@ export default function ProgramsShowcase() {
   ];
 
   return (
-    <section className="section-container bg-white">
+    <section id="programs" className="section-container bg-white">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -57,6 +57,7 @@ export default function ProgramsShowcase() {
           {programs.map((program, index) => (
             <motion.div
               key={program.id}
+              id={program.id}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}

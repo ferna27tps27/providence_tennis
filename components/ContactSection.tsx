@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { submitContactSubmission } from "../lib/api/contact-api";
 
 export default function ContactSection() {
   const [formData, setFormData] = useState({
@@ -10,16 +11,24 @@ export default function ContactSection() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate form submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert("Thank you for your message! We'll get back to you soon.");
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      const result = await submitContactSubmission(formData);
+      setSubmitSuccess(result.messageText || "Thank you for your message!");
       setFormData({ name: "", email: "", message: "" });
-    }, 1000);
+    } catch (error: any) {
+      setSubmitError(error?.message || "We could not send your message.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -57,6 +66,16 @@ export default function ContactSection() {
             transition={{ duration: 0.6 }}
           >
             <h3 className="text-2xl font-bold mb-6">Drop us a line!</h3>
+            {submitSuccess && (
+              <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                {submitSuccess}
+              </div>
+            )}
+            {submitError && (
+              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label
@@ -120,8 +139,7 @@ export default function ContactSection() {
                 {isSubmitting ? "Sending..." : "Send"}
               </button>
               <p className="text-xs text-gray-500 text-center">
-                This site is protected by reCAPTCHA and the Google Privacy
-                Policy and Terms of Service apply.
+                Messages are saved to our backend so the team can review and follow up.
               </p>
             </form>
           </motion.div>
@@ -134,7 +152,7 @@ export default function ContactSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="card bg-white">
+            <div id="staff" className="card bg-white">
               <h3 className="text-2xl font-bold mb-6">
                 Better yet, see us in person!
               </h3>
@@ -147,7 +165,7 @@ export default function ContactSection() {
               </p>
             </div>
 
-            <div className="card bg-gradient-to-br from-primary-50 to-white">
+            <div id="locations" className="card bg-gradient-to-br from-primary-50 to-white">
               <h4 className="text-xl font-bold mb-4">Providence Tennis</h4>
               <div className="space-y-3 text-gray-700">
                 <div className="flex items-start">

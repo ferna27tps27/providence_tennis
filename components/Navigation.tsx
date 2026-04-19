@@ -25,9 +25,9 @@ export default function Navigation() {
       href: "#juniors",
       submenu: [
         { name: "Junior Tennis", href: "#juniors" },
-        { name: "Summer Camp", href: "#camp" },
+        { name: "Summer Camp", href: "/summer-camp" },
         { name: "Tournaments", href: "#tournaments" },
-        { name: "2026 Memberships", href: "#memberships" },
+        { name: "2026 Memberships", href: "#reservations" },
       ]
     },
     { 
@@ -35,10 +35,10 @@ export default function Navigation() {
       href: "#adults",
       submenu: [
         { name: "Adult Tennis", href: "#adults" },
-        { name: "2026 Memberships", href: "#memberships" },
+        { name: "2026 Memberships", href: "#reservations" },
       ]
     },
-    { name: "PICKLEBALL", href: "#pickleball" },
+    { name: "PICKLEBALL", href: "#programs" },
     { name: "RESERVATIONS", href: "#reservations", isButton: true },
     { name: "PLAYING OPTIONS", href: "#programs" },
     { name: "LOCATIONS", href: "#locations" },

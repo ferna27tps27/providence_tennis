@@ -39,7 +39,7 @@ export interface Reservation {
   
   notes?: string;
   createdAt: string;
-  status: "confirmed" | "cancelled";
+  status: "pending_payment" | "confirmed" | "cancelled";
   
   // Payment fields (Phase 4)
   paymentId?: string;

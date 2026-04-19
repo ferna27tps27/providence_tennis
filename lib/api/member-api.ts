@@ -21,7 +21,7 @@ export interface Member {
   notes?: string;
   unsubscribeEmail?: boolean;
   emailVerified?: boolean;
-  role?: "player" | "coach" | "parent" | "admin";
+  role?: "player" | "coach" | "parent" | "admin" | "owner";
   ntrpRating?: string;
   ustaNumber?: string;
 }

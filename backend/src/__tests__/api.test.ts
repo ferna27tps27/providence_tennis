@@ -77,6 +77,63 @@ describe("backend api", () => {
     expect(Array.isArray(response.body.availability)).toBe(true);
   });
 
+  it("hides chat health details in production unless explicitly authorized", async () => {
+    const originalRender = process.env.RENDER;
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalChatHealthToken = process.env.CHAT_HEALTH_TOKEN;
+    const originalModel = process.env.GOOGLE_GENAI_MODEL;
+    const originalGoogleApiKey = process.env.GOOGLE_API_KEY;
+
+    process.env.RENDER = "true";
+    process.env.NODE_ENV = "production";
+    process.env.CHAT_HEALTH_TOKEN = "chat-health-secret";
+    process.env.GOOGLE_GENAI_MODEL = "gemini-3-flash-preview";
+    process.env.GOOGLE_API_KEY = "test-google-api-key";
+
+    try {
+      const unauthorized = await request(app).get("/api/chat/health");
+      expect(unauthorized.status).toBe(404);
+
+      const authorized = await request(app)
+        .get("/api/chat/health")
+        .set("x-chat-health-token", "chat-health-secret");
+
+      expect(authorized.status).toBe(200);
+      expect(authorized.body.ok).toBe(true);
+      expect(authorized.body.route).toBe("/api/chat");
+    } finally {
+      if (originalRender === undefined) {
+        delete process.env.RENDER;
+      } else {
+        process.env.RENDER = originalRender;
+      }
+
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+
+      if (originalChatHealthToken === undefined) {
+        delete process.env.CHAT_HEALTH_TOKEN;
+      } else {
+        process.env.CHAT_HEALTH_TOKEN = originalChatHealthToken;
+      }
+
+      if (originalModel === undefined) {
+        delete process.env.GOOGLE_GENAI_MODEL;
+      } else {
+        process.env.GOOGLE_GENAI_MODEL = originalModel;
+      }
+
+      if (originalGoogleApiKey === undefined) {
+        delete process.env.GOOGLE_API_KEY;
+      } else {
+        process.env.GOOGLE_API_KEY = originalGoogleApiKey;
+      }
+    }
+  });
+
   it("creates and fetches a reservation", async () => {
     // Use unique date and time slot to avoid conflicts
     const uniqueId = Date.now();

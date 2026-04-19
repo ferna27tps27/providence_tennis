@@ -13,7 +13,7 @@ export default function TopBanner() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <Link
-          href="#memberships"
+          href="/summer-camp"
           className="hover:underline transition-colors inline-flex items-center"
         >
           2026 memberships, summer camps, and group information are now available

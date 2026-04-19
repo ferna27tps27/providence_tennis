@@ -254,7 +254,7 @@ describe("Authentication Flow Integration Tests (Phase 1)", () => {
       
       // Step 2: Get reset token (in real app, from email)
       const { createResetToken } = await import("../../src/lib/auth/password-reset");
-      const resetToken = createResetToken("resetflow@example.com");
+      const resetToken = await createResetToken("resetflow@example.com");
       
       // Step 3: Reset password
       const resetResult = await resetPassword(resetToken, "NewPassword123");
@@ -277,7 +277,7 @@ describe("Authentication Flow Integration Tests (Phase 1)", () => {
 
     it("should reject reset with weak password", async () => {
       const { createResetToken } = await import("../../src/lib/auth/password-reset");
-      const resetToken = createResetToken("resetflow@example.com");
+      const resetToken = await createResetToken("resetflow@example.com");
       
       await expect(
         resetPassword(resetToken, "weak")

@@ -20,7 +20,7 @@ interface AuthContextType {
     email: string;
     phone: string;
     password: string;
-    role?: "player" | "coach" | "parent" | "admin";
+    role?: "player" | "coach" | "parent" | "admin" | "owner";
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string;
       phone: string;
       password: string;
-      role?: "player" | "coach" | "parent" | "admin";
+      role?: "player" | "coach" | "parent" | "admin" | "owner";
     }) => {
       try {
         const response = await signUp(data);

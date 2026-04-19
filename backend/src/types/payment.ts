@@ -4,7 +4,15 @@
 
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed" | "cancelled";
 
-export type PaymentType = "court_booking" | "membership" | "other";
+export type PaymentType =
+  | "court_booking"
+  | "membership"
+  | "lesson_package"
+  | "private_lesson"
+  | "program_fee"
+  | "refund"
+  | "manual_charge"
+  | "other";
 
 export interface Payment {
   id: string;                      // Unique payment ID

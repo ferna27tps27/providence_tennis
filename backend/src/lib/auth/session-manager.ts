@@ -1,14 +1,79 @@
 /**
- * Session management using JWT tokens
+ * Session management using JWT tokens with optional Prisma-backed persistence.
  */
 
+import { randomUUID } from "crypto";
+
+import { UserRole } from "@prisma/client";
 import * as jwt from "jsonwebtoken";
+
 import { Session } from "../../types/auth";
+import { getPrismaClient } from "../db/prisma-client";
 
-const JWT_SECRET: string = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || "7d"; // 7 days default
+const INSECURE_DEVELOPMENT_JWT_SECRET = "development-only-insecure-jwt-secret";
 
-// In-memory session store (in production, use Redis or database)
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+}
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret && secret !== "your-secret-key-change-in-production") {
+    return secret;
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error("JWT_SECRET must be configured for production runtime");
+  }
+
+  return INSECURE_DEVELOPMENT_JWT_SECRET;
+}
+
+function getJwtExpiresIn(): string {
+  return process.env.JWT_EXPIRES_IN || "7d";
+}
+
+function getSessionExpiryDate(): Date {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  return expiresAt;
+}
+
+export function assertAuthSecretsConfigured(): void {
+  void getJwtSecret();
+}
+
+function toUserRole(role: string): UserRole {
+  switch (role) {
+    case "admin":
+      return UserRole.ADMIN;
+    case "coach":
+      return UserRole.COACH;
+    case "parent":
+      return UserRole.PARENT;
+    default:
+      return UserRole.PLAYER;
+  }
+}
+
+function mapSessionRecord(session: {
+  id: string;
+  userId: string;
+  email: string;
+  role: UserRole;
+  expiresAt: Date;
+}): Session {
+  return {
+    sessionId: session.id,
+    memberId: session.userId,
+    email: session.email,
+    role: session.role.toLowerCase(),
+    expiresAt: session.expiresAt.toISOString(),
+  };
+}
+
+// In-memory fallback for non-DB runtimes.
 const activeSessions = new Map<string, Session>();
 
 /**
@@ -16,84 +81,176 @@ const activeSessions = new Map<string, Session>();
  */
 export function createToken(session: Session): string {
   const payload = {
+    sessionId: session.sessionId,
     memberId: session.memberId,
     email: session.email,
     role: session.role,
     expiresAt: session.expiresAt,
   };
-  
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
+
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: getJwtExpiresIn(),
   } as jwt.SignOptions);
 }
 
 /**
  * Verify and decode a JWT token
  */
-export function verifyToken(token: string): Session | null {
+export async function verifyToken(token: string): Promise<Session | null> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    
-    // Check if token is expired
+    const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload & {
+      sessionId?: string;
+      memberId?: string;
+      email?: string;
+      role?: string;
+      expiresAt?: string;
+    };
+
+    if (!decoded.memberId || !decoded.email || !decoded.role) {
+      return null;
+    }
+
     if (decoded.exp && decoded.exp * 1000 < Date.now()) {
       return null;
     }
-    
+
+    const prisma = getPrismaClient();
+    if (prisma) {
+      if (!decoded.sessionId) {
+        return null;
+      }
+
+      const session = await prisma.authSession.findUnique({
+        where: { id: decoded.sessionId },
+      });
+
+      if (!session || session.userId !== decoded.memberId || session.revokedAt) {
+        return null;
+      }
+
+      if (session.expiresAt.getTime() < Date.now()) {
+        return null;
+      }
+
+      return mapSessionRecord(session);
+    }
+
     return {
+      sessionId: decoded.sessionId,
       memberId: decoded.memberId,
       email: decoded.email,
       role: decoded.role,
-      expiresAt: new Date(decoded.exp * 1000).toISOString(),
+      expiresAt:
+        decoded.expiresAt ||
+        (decoded.exp ? new Date(decoded.exp * 1000).toISOString() : getSessionExpiryDate().toISOString()),
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
 /**
- * Create a session object
+ * Create a session object and persist it when Prisma runtime is enabled.
  */
-export function createSession(
+export async function createSession(
   memberId: string,
   email: string,
   role: string
-): Session {
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-  
+): Promise<Session> {
+  const expiresAt = getSessionExpiryDate();
+  const sessionId = randomUUID();
+
   const session: Session = {
+    sessionId,
     memberId,
     email,
     role,
     expiresAt: expiresAt.toISOString(),
   };
-  
-  // Store session in memory
+
+  const prisma = getPrismaClient();
+  if (prisma) {
+    await prisma.authSession.create({
+      data: {
+        id: sessionId,
+        userId: memberId,
+        email,
+        role: toUserRole(role),
+        expiresAt,
+      },
+    });
+    return session;
+  }
+
   activeSessions.set(memberId, session);
-  
   return session;
 }
 
 /**
- * Get session by member ID
+ * Get the active session for a member.
  */
-export function getSession(memberId: string): Session | null {
+export async function getSession(memberId: string): Promise<Session | null> {
+  const prisma = getPrismaClient();
+  if (prisma) {
+    const session = await prisma.authSession.findFirst({
+      where: {
+        userId: memberId,
+        revokedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return session ? mapSessionRecord(session) : null;
+  }
+
   return activeSessions.get(memberId) || null;
 }
 
 /**
- * Remove a session (logout)
+ * Revoke a session (logout). If sessionId is omitted, revoke all sessions for the member.
  */
-export function removeSession(memberId: string): void {
+export async function removeSession(memberId: string, sessionId?: string): Promise<void> {
+  const prisma = getPrismaClient();
+  if (prisma) {
+    await prisma.authSession.updateMany({
+      where: {
+        userId: memberId,
+        revokedAt: null,
+        ...(sessionId ? { id: sessionId } : {}),
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+    return;
+  }
+
   activeSessions.delete(memberId);
 }
 
 /**
- * Remove all expired sessions (cleanup)
+ * Remove all expired sessions (cleanup).
  */
-export function cleanupExpiredSessions(): void {
+export async function cleanupExpiredSessions(): Promise<void> {
+  const prisma = getPrismaClient();
+  if (prisma) {
+    await prisma.authSession.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lt: new Date() } },
+          { revokedAt: { not: null } },
+        ],
+      },
+    });
+    return;
+  }
+
   const now = new Date();
-  
   for (const [memberId, session] of Array.from(activeSessions.entries())) {
     if (new Date(session.expiresAt) < now) {
       activeSessions.delete(memberId);
@@ -101,7 +258,9 @@ export function cleanupExpiredSessions(): void {
   }
 }
 
-// Run cleanup every hour
+// Run cleanup every hour.
 if (typeof setInterval !== "undefined") {
-  setInterval(cleanupExpiredSessions, 60 * 60 * 1000); // 1 hour
+  setInterval(() => {
+    void cleanupExpiredSessions();
+  }, 60 * 60 * 1000);
 }

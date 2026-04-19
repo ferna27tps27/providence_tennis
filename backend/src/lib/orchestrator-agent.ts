@@ -11,7 +11,7 @@
  * 5. Adapts capabilities based on user role (admin/coach/player)
  */
 
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { Type } from "@google/genai";
 import { getJournalEntries } from "./journal";
 import { journalRepository } from "./repositories/file-journal-repository";
 import {
@@ -25,21 +25,39 @@ import {
   createTrainingPlan,
   getPlayerTrainingPlans,
 } from "./repositories/file-training-plan-repository";
+import {
+  buildGeminiHistory,
+  getResponseText,
+  runGeminiFunctionCallingLoop,
+} from "./gemini-client";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+const academyTimeZone = "America/New_York";
 
 // ─── System Prompts ──────────────────────────────────────────────────
+
+function getTodayContext() {
+  const now = new Date();
+  return {
+    isoDate: now.toISOString().split("T")[0],
+    displayDate: new Intl.DateTimeFormat("en-US", {
+      timeZone: academyTimeZone,
+      dateStyle: "long",
+    }).format(now),
+  };
+}
 
 function getOrchestratorSystemPrompt(
   userRole: string,
   userName: string,
   userId: string
 ): string {
+  const today = getTodayContext();
   const basePrompt = `
 You are the AI Tennis Coach & Assistant for Providence Tennis Academy. Your name is "Ace" and you are here to help everyone at the academy improve their tennis game.
 
 **Current User:** ${userName} (Role: ${userRole}, ID: ${userId})
+**Today's Date:** ${today.displayDate} (${today.isoDate})
 
 ## Your Core Capabilities:
 
@@ -69,6 +87,9 @@ You are the AI Tennis Coach & Assistant for Providence Tennis Academy. Your name
 - Provide specific drills and exercises with clear instructions
 - Set measurable weekly goals
 - Celebrate progress and acknowledge effort
+- Treat prior plan dates and journal dates as historical context only
+- Frame recommendations from today's date forward for the next session, upcoming week, or future block
+- Never present an old plan creation date as if it were the current week
 
 ## Conversation Style:
 - Be conversational and friendly, like a supportive coach
@@ -253,10 +274,10 @@ const trainingTools = [
     description:
       "Analyzes a player's journal entries to provide statistics about their training sessions, focus areas, and progress trends. Returns frequency of areas worked on, recent focus, coach feedback, and improvement trends.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         playerId: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "The ID of the player to analyze",
         },
       },
@@ -268,10 +289,10 @@ const trainingTools = [
     description:
       "Gets basic profile information about a player including name, member number, rating, and join date.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         playerId: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "The ID of the player",
         },
       },
@@ -283,10 +304,10 @@ const trainingTools = [
     description:
       "Retrieves all previous training plans created for the player to track progress over time and avoid repetition.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         playerId: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "The ID of the player",
         },
       },
@@ -298,41 +319,41 @@ const trainingTools = [
     description:
       "Creates a personalized training plan for a player. After calling this, you MUST also call createJournalEntryForPlan to log the plan as a journal entry.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         playerId: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "The ID of the player",
         },
         focusAreas: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description:
             "Main areas to focus on (e.g., ['backhand', 'serve', 'footwork'])",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
         strengths: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description: "Player's current strengths",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
         areasForImprovement: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description: "Specific areas that need work",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
         recommendations: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Detailed recommendations and strategy",
         },
         suggestedDrills: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description: "Specific drills to practice",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
         weeklyGoals: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description: "Achievable weekly goals",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
       },
       required: [
@@ -348,29 +369,29 @@ const trainingTools = [
     description:
       "Logs a training plan as a journal entry so it appears in the player's journal history. Call this AFTER creating a training plan. The summary should describe the plan, areasWorkedOn should list the focus areas, and pointersForNextSession should contain the key recommendations.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         playerId: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "The ID of the player the plan is for",
         },
         summary: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description:
             "A summary of the training plan (e.g., 'AI-Generated Training Plan: Focus on backhand and serve consistency')",
         },
         areasWorkedOn: {
-          type: SchemaType.ARRAY,
+          type: Type.ARRAY,
           description: "The focus areas from the training plan",
-          items: { type: SchemaType.STRING },
+          items: { type: Type.STRING },
         },
         pointersForNextSession: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description:
             "Key recommendations and goals from the plan for the next sessions",
         },
         additionalNotes: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description:
             "Optional: Additional details about the plan, drills, or goals",
         },
@@ -394,10 +415,10 @@ const adminTools = [
     description:
       "Search for players by name. Returns matching members. Use this when the user mentions a player by name to find their ID.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         searchTerm: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description:
             "Name or partial name to search for (e.g., 'Jose', 'Smith')",
         },
@@ -410,7 +431,7 @@ const adminTools = [
     description:
       "List all active players at the academy. Use when admin asks to see all players or needs to find someone.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {},
     },
   },
@@ -419,31 +440,31 @@ const adminTools = [
     description:
       "Create a new player account at the academy. Requires firstName, lastName, email, and phone. The player will be created with role 'player' and active status.",
     parameters: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
         firstName: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Player's first name",
         },
         lastName: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Player's last name",
         },
         email: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Player's email address",
         },
         phone: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Player's phone number",
         },
         ntrpRating: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description:
             "Optional: Player's NTRP rating (e.g., '3.5', '4.0')",
         },
         notes: {
-          type: SchemaType.STRING,
+          type: Type.STRING,
           description: "Optional: Any notes about the player",
         },
       },
@@ -735,21 +756,12 @@ export async function chatWithOrchestrator(
     allTools.push(...adminTools);
   }
 
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    tools: [{ functionDeclarations: allTools }] as any,
-    systemInstruction: {
-      parts: [
-        {
-          text: getOrchestratorSystemPrompt(userRole, userName, userId),
-        },
-      ],
-    } as any,
-  });
-
   // Format conversation history
   const filteredHistory = conversationHistory
-    .filter((msg) => msg.role === "user" || msg.role === "assistant")
+    .filter(
+      (msg): msg is { role: "user" | "assistant"; content: string } =>
+        msg.role === "user" || msg.role === "assistant"
+    )
     .slice(-12); // Keep last 12 messages for context
 
   // Ensure history starts with a user message
@@ -757,65 +769,35 @@ export async function chatWithOrchestrator(
     filteredHistory.shift();
   }
 
-  const formattedHistory = filteredHistory.map((msg) => ({
-    role: msg.role === "assistant" ? "model" : msg.role,
-    parts: [{ text: msg.content }],
-  }));
+  const contents = [
+    ...buildGeminiHistory(filteredHistory),
+    {
+      role: "user",
+      parts: [{ text: message }],
+    },
+  ];
 
-  const chat = model.startChat({
-    history: formattedHistory,
+  const MAX_LOOPS = 10; // Safety limit
+  const { response, loopCount } = await runGeminiFunctionCallingLoop({
+    model: modelName,
+    contents,
+    tools: [{ functionDeclarations: allTools }] as any,
+    systemInstruction: getOrchestratorSystemPrompt(userRole, userName, userId),
+    maxLoops: MAX_LOOPS,
+    handleToolCall: async (call) => {
+      console.log(
+        `[Orchestrator AI] Processing tool call: ${call.name || "unknown"}`
+      );
+      return handleToolCall(call as { name: string; args?: Record<string, any> }, userId, userRole);
+    },
   });
 
-  // Send message and handle agentic tool-calling loop
-  let result = await chat.sendMessage(message);
-  let response = result.response;
-
-  // Agentic loop: keep calling tools until the model returns a text response
-  let loopCount = 0;
-  const MAX_LOOPS = 10; // Safety limit
-
-  while (
-    loopCount < MAX_LOOPS &&
-    response.candidates?.[0]?.content?.parts?.some(
-      (part: any) => part.functionCall
-    )
-  ) {
-    loopCount++;
-    const functionCalls = response.candidates[0].content.parts.filter(
-      (part: any) => part.functionCall
-    );
-
-    console.log(
-      `[Orchestrator AI] Loop ${loopCount}: Processing ${functionCalls.length} tool call(s)`
-    );
-
-    const functionResponses = await Promise.all(
-      functionCalls.map(async (part: any) => {
-        const toolResult = await handleToolCall(
-          part.functionCall,
-          userId,
-          userRole
-        );
-        return {
-          functionResponse: {
-            name: part.functionCall.name,
-            response: toolResult,
-          },
-        };
-      })
-    );
-
-    // Send tool results back to the model
-    result = await chat.sendMessage(functionResponses);
-    response = result.response;
-  }
-
-  if (loopCount >= MAX_LOOPS) {
+  if (loopCount === MAX_LOOPS) {
     console.warn(
       "[Orchestrator AI] Hit maximum tool-call loop limit"
     );
   }
 
-  const textResponse = response.text();
+  const textResponse = getResponseText(response);
   return { response: textResponse };
 }

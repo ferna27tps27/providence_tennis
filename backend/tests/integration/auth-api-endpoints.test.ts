@@ -127,6 +127,7 @@ describe("Authentication API Endpoints Integration Tests (Phase 1)", () => {
       expect(response.body.member.email).toBe("john@example.com");
       expect(response.body.member.emailVerified).toBe(false);
       expect(response.body.member.role).toBe("player");
+      expect(response.body.verificationToken).toBeUndefined();
     });
 
     it("should reject signup with missing required fields", async () => {
@@ -350,7 +351,7 @@ describe("Authentication API Endpoints Integration Tests (Phase 1)", () => {
       
       // We'll need to import the email verification module to create a token
       const { createVerificationToken } = await import("../../src/lib/auth/email-verification");
-      const token = createVerificationToken("verify@example.com");
+      const token = await createVerificationToken("verify@example.com");
       
       const response = await request(app)
         .post("/api/auth/verify-email")
@@ -440,7 +441,7 @@ describe("Authentication API Endpoints Integration Tests (Phase 1)", () => {
     it("should reset password with valid token", async () => {
       // Create a reset token
       const { createResetToken } = await import("../../src/lib/auth/password-reset");
-      const token = createResetToken("resetpass@example.com");
+      const token = await createResetToken("resetpass@example.com");
       
       const response = await request(app)
         .post("/api/auth/reset-password")
@@ -477,7 +478,7 @@ describe("Authentication API Endpoints Integration Tests (Phase 1)", () => {
 
     it("should reject reset with weak password", async () => {
       const { createResetToken } = await import("../../src/lib/auth/password-reset");
-      const token = createResetToken("resetpass@example.com");
+      const token = await createResetToken("resetpass@example.com");
       
       const response = await request(app)
         .post("/api/auth/reset-password")

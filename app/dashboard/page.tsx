@@ -5,6 +5,8 @@ import DashboardLayout from "../../components/dashboard/DashboardLayout";
 import MembershipStatus from "../../components/dashboard/MembershipStatus";
 import BookingCard from "../../components/dashboard/BookingCard";
 import PaymentCard from "../../components/dashboard/PaymentCard";
+import AdminOverview from "../../components/dashboard/AdminOverview";
+import CoachOverview from "../../components/dashboard/CoachOverview";
 import { useAuth } from "../../lib/auth/auth-context";
 import { getMyReservations } from "../../lib/api/member-api";
 import { getPayments } from "../../lib/api/payment-api";
@@ -15,7 +17,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 
 export default function DashboardPage() {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token } = useAuth();
   const [upcomingBookings, setUpcomingBookings] = useState<Reservation[]>([]);
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +41,10 @@ export default function DashboardPage() {
           new Date(`${r.date}T${r.timeSlot?.start ?? "00:00"}`);
         const upcoming = reservations
           .filter((r: Reservation) => {
-            return bookingStart(r) >= now && r.status === "confirmed";
+            return (
+              bookingStart(r) >= now &&
+              (r.status === "confirmed" || r.status === "pending_payment")
+            );
           })
           .sort((a: Reservation, b: Reservation) => {
             return bookingStart(a).getTime() - bookingStart(b).getTime();
@@ -88,7 +93,11 @@ export default function DashboardPage() {
       const bookingStart = (r: Reservation) =>
         new Date(`${r.date}T${r.timeSlot?.start ?? "00:00"}`);
       const upcoming = reservations
-        .filter((r: Reservation) => bookingStart(r) >= now && r.status === "confirmed")
+        .filter(
+          (r: Reservation) =>
+            bookingStart(r) >= now &&
+            (r.status === "confirmed" || r.status === "pending_payment")
+        )
         .sort((a: Reservation, b: Reservation) => bookingStart(a).getTime() - bookingStart(b).getTime())
         .slice(0, 3);
       setUpcomingBookings(upcoming);
@@ -101,6 +110,22 @@ export default function DashboardPage() {
   };
 
   if (!user) return null;
+
+  if (user.role === "admin" || user.role === "owner") {
+    return (
+      <DashboardLayout>
+        <AdminOverview />
+      </DashboardLayout>
+    );
+  }
+
+  if (user.role === "coach") {
+    return (
+      <DashboardLayout>
+        <CoachOverview />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

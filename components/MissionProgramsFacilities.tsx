@@ -44,7 +44,7 @@ export default function MissionProgramsFacilities() {
   ];
 
   return (
-    <section className="section-container bg-white">
+    <section id="juniors" className="section-container bg-white">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
           {sections.map((section, index) => (

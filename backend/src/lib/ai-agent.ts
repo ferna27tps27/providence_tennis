@@ -1,11 +1,19 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { FunctionCallingConfigMode, Type } from "@google/genai";
 import {
   createReservation,
   getAvailabilityByDate,
   getCourt,
 } from "./reservations";
+import {
+  buildGeminiHistory,
+  getResponseText,
+  normalizeToolArgs,
+  runGeminiFunctionCallingLoop,
+} from "./gemini-client";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+export type PublicAiChatContext = {
+  requestId?: string;
+};
 
 const TENNIS_CONTEXT = `
 You are a helpful AI assistant for Providence Tennis Academy, located at 1000 Elmwood Avenue, Providence, RI, USA. Phone: 401-935-4336.
@@ -72,6 +80,17 @@ export interface ChatMessage {
   timestamp?: Date;
 }
 
+function logPublicAiEvent(event: string, data: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: "public_ai_agent",
+      event,
+      timestamp: new Date().toISOString(),
+      ...data,
+    })
+  );
+}
+
 function parseBookingDetails(message: string): ParsedBooking | null {
   const courtMatch = message.match(/court\s*(\d+)/i);
   const dateMatch = message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
@@ -111,7 +130,8 @@ function parseBookingDetails(message: string): ParsedBooking | null {
 
 export async function chatWithAgent(
   message: string,
-  conversationHistory: ChatMessage[] = []
+  conversationHistory: ChatMessage[] = [],
+  context: PublicAiChatContext = {}
 ): Promise<{ response: string; sources?: Array<{ title: string; url: string }> }> {
   try {
     const modelName = process.env.GOOGLE_GENAI_MODEL;
@@ -119,8 +139,24 @@ export async function chatWithAgent(
       throw new Error("GOOGLE_GENAI_MODEL is not set in environment");
     }
 
+    logPublicAiEvent("chat_started", {
+      requestId: context.requestId,
+      modelName,
+      messageLength: message.length,
+      historyCount: conversationHistory.length,
+      apiKeyConfigured: Boolean(
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+      ),
+    });
+
     const parsedBooking = parseBookingDetails(message);
     if (parsedBooking) {
+      logPublicAiEvent("booking_detected", {
+        requestId: context.requestId,
+        courtId: parsedBooking.courtId,
+        date: parsedBooking.date,
+      });
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(parsedBooking.customerEmail)) {
         return { response: "Please provide a valid email address." };
@@ -134,7 +170,6 @@ export async function chatWithAgent(
       try {
         const reservation = await createReservation({
           courtId: parsedBooking.courtId,
-          courtName: court.name,
           date: parsedBooking.date,
           timeSlot: {
             start: parsedBooking.timeSlotStart,
@@ -149,6 +184,12 @@ export async function chatWithAgent(
           response: `Confirmed! Your reservation for ${reservation.courtName} on ${reservation.date} from ${reservation.timeSlot.start} to ${reservation.timeSlot.end} is booked. A confirmation will be sent to ${reservation.customerEmail}.`,
         };
       } catch (error: any) {
+        logPublicAiEvent("booking_failed", {
+          requestId: context.requestId,
+          errorName: error?.name || "Error",
+          errorMessage: error?.message || "Unknown booking error",
+        });
+
         return {
           response:
             error.message ||
@@ -164,14 +205,14 @@ export async function chatWithAgent(
             name: "getCourtAvailability",
             description: "Get available court time slots for a specific date.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date in YYYY-MM-DD format",
                 },
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional court ID to filter availability",
                 },
               },
@@ -182,38 +223,38 @@ export async function chatWithAgent(
             name: "createCourtReservation",
             description: "Create a court reservation in the booking backend.",
             parameters: {
-              type: SchemaType.OBJECT,
+              type: Type.OBJECT,
               properties: {
                 courtId: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Court ID to reserve",
                 },
                 date: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Date in YYYY-MM-DD format",
                 },
                 timeSlotStart: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Start time in HH:mm format",
                 },
                 timeSlotEnd: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "End time in HH:mm format",
                 },
                 customerName: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer full name",
                 },
                 customerEmail: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer email address",
                 },
                 customerPhone: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Customer phone number",
                 },
                 notes: {
-                  type: SchemaType.STRING,
+                  type: Type.STRING,
                   description: "Optional booking notes",
                 },
               },
@@ -232,52 +273,27 @@ export async function chatWithAgent(
       },
     ] as any;
 
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      tools,
-    });
-
     let filteredHistory = conversationHistory.slice(-10);
     if (filteredHistory.length > 0 && filteredHistory[0].role === "assistant") {
       filteredHistory = filteredHistory.slice(1);
     }
 
-    const history = filteredHistory.map((msg) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
-
-    const historyWithContext = [
-      {
-        role: "user",
-        parts: [{ text: TENNIS_CONTEXT }],
-      },
-      ...history,
-    ];
-
-    const chat = model.startChat({
-      history: historyWithContext,
-      toolConfig: {
-        functionCallingConfig: { mode: "AUTO" },
-      } as any,
-    });
-
     const handleFunctionCall = async (call: ToolCall) => {
-      let args: Record<string, any> = {};
-      if (typeof call.args === "string") {
-        try {
-          args = JSON.parse(call.args);
-        } catch {
-          args = {};
-        }
-      } else if (call.args) {
-        args = call.args;
-      }
+      const args = normalizeToolArgs(call.args);
+
+      logPublicAiEvent("tool_call_started", {
+        requestId: context.requestId,
+        toolName: call.name,
+      });
 
       if (call.name === "getCourtAvailability") {
         const date = String(args.date || "");
         const courtId = args.courtId ? String(args.courtId) : undefined;
-        const availability = await getAvailabilityByDate(date);
+        const availability = (await getAvailabilityByDate(date)) as Array<{
+          courtId: string;
+          courtName: string;
+          slots: Array<{ start: string; end: string; available: boolean }>;
+        }>;
         const filtered = courtId
           ? availability.filter((court) => court.courtId === courtId)
           : availability;
@@ -330,7 +346,6 @@ export async function chatWithAgent(
         try {
           const reservation = await createReservation({
             courtId,
-            courtName: court.name,
             date,
             timeSlot: { start: timeSlotStart, end: timeSlotEnd },
             customerName,
@@ -338,8 +353,22 @@ export async function chatWithAgent(
             customerPhone,
             notes,
           });
+
+          logPublicAiEvent("tool_call_completed", {
+            requestId: context.requestId,
+            toolName: call.name,
+            success: true,
+          });
+
           return { success: true, reservation };
         } catch (error: any) {
+          logPublicAiEvent("tool_call_failed", {
+            requestId: context.requestId,
+            toolName: call.name,
+            errorName: error?.name || "Error",
+            errorMessage: error?.message || "Failed to create reservation",
+          });
+
           return {
             success: false,
             error: error.message || "Failed to create reservation",
@@ -349,38 +378,27 @@ export async function chatWithAgent(
 
       return { success: false, error: "Unknown function call" };
     };
+    const contents = [
+      ...buildGeminiHistory(filteredHistory, TENNIS_CONTEXT),
+      {
+        role: "user",
+        parts: [{ text: message }],
+      },
+    ];
 
-    const extractFunctionCalls = (response: any): ToolCall[] => {
-      if (typeof response.functionCalls === "function") {
-        return response.functionCalls() || [];
-      }
-
-      const parts = response.candidates?.[0]?.content?.parts || [];
-      return parts
-        .filter((part: any) => part.functionCall)
-        .map((part: any) => part.functionCall);
-    };
-
-    let result = await chat.sendMessage(message);
-    let response = await result.response;
-
-    let toolCalls = extractFunctionCalls(response);
-    while (toolCalls.length > 0) {
-      for (const call of toolCalls) {
-        const toolResult = await handleFunctionCall(call);
-        result = await chat.sendMessage([
-          {
-            functionResponse: {
-              name: call.name,
-              response: toolResult,
-            },
+    const { response } = await runGeminiFunctionCallingLoop({
+      model: modelName,
+      contents,
+      tools,
+      config: {
+        toolConfig: {
+          functionCallingConfig: {
+            mode: FunctionCallingConfigMode.AUTO,
           },
-        ]);
-        response = await result.response;
-      }
-
-      toolCalls = extractFunctionCalls(response);
-    }
+        },
+      },
+      handleToolCall: handleFunctionCall,
+    });
 
     const sources: Array<{ title: string; url: string }> = [];
     try {
@@ -403,11 +421,22 @@ export async function chatWithAgent(
     }
 
     return {
-      response: response.text(),
+      response: getResponseText(response),
       sources: sources.length > 0 ? sources : undefined,
     };
   } catch (error: any) {
-    console.error("Error in AI agent:", error);
+    console.error(
+      JSON.stringify({
+        scope: "public_ai_agent",
+        event: "chat_failed",
+        timestamp: new Date().toISOString(),
+        requestId: context.requestId,
+        errorName: error?.name || "Error",
+        errorMessage: error?.message || "Failed to get response from AI agent",
+        stack: error?.stack || null,
+      })
+    );
+
     throw new Error(
       error.message || "Failed to get response from AI agent"
     );

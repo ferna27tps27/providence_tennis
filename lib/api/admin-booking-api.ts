@@ -19,7 +19,7 @@ export interface AdminReservation {
   guestPhone?: string;
   notes?: string;
   createdAt: string;
-  status: "confirmed" | "cancelled";
+  status: "pending_payment" | "confirmed" | "cancelled";
   paymentId?: string;
   paymentStatus?: "pending" | "paid" | "refunded" | "failed";
   paymentAmount?: number;
@@ -44,7 +44,7 @@ export interface Court {
 export interface AdminReservationFilters {
   dateFrom?: string;
   dateTo?: string;
-  status?: "confirmed" | "cancelled";
+  status?: "pending_payment" | "confirmed" | "cancelled";
   courtId?: string;
   search?: string;
 }
@@ -96,7 +96,7 @@ export async function updateAdminReservation(
     courtId: string;
     timeSlot: { start: string; end: string };
     notes: string;
-    status: "confirmed" | "cancelled";
+    status: "pending_payment" | "confirmed" | "cancelled";
   }>,
   token: string
 ): Promise<AdminReservation> {

@@ -92,6 +92,16 @@ function getPaymentTypeDescription(type: Payment["type"]): string {
       return "Court Booking";
     case "membership":
       return "Membership Fee";
+    case "program_fee":
+      return "Program Fee";
+    case "lesson_package":
+      return "Lesson Package";
+    case "private_lesson":
+      return "Private Lesson";
+    case "manual_charge":
+      return "Manual Charge";
+    case "refund":
+      return "Refund";
     case "other":
       return "Payment";
     default:

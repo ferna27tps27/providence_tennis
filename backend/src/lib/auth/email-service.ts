@@ -8,6 +8,19 @@
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3009";
 const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@providencetennis.com";
 
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+}
+
+function redactEmail(email: string): string {
+  const [localPart, domain] = email.split("@");
+  if (!localPart || !domain) {
+    return "[redacted]";
+  }
+
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
+
 /**
  * Send email verification email
  */
@@ -17,9 +30,21 @@ export async function sendVerificationEmail(
   token: string
 ): Promise<void> {
   const verificationUrl = `${FRONTEND_URL}/verify-email?token=${token}`;
-  
-  // In production, use a real email service
-  // For now, we'll just log it
+
+  if (isProductionRuntime()) {
+    console.log(
+      JSON.stringify({
+        scope: "auth_email",
+        event: "verification_email_requested",
+        to: redactEmail(email),
+        providerConfigured: false,
+        timestamp: new Date().toISOString(),
+      })
+    );
+    return;
+  }
+
+  // In non-production environments, log the link to support local testing.
   console.log(`
 ========================================
 EMAIL VERIFICATION
@@ -62,9 +87,21 @@ export async function sendPasswordResetEmail(
   token: string
 ): Promise<void> {
   const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
-  
-  // In production, use a real email service
-  // For now, we'll just log it
+
+  if (isProductionRuntime()) {
+    console.log(
+      JSON.stringify({
+        scope: "auth_email",
+        event: "password_reset_requested",
+        to: redactEmail(email),
+        providerConfigured: false,
+        timestamp: new Date().toISOString(),
+      })
+    );
+    return;
+  }
+
+  // In non-production environments, log the link to support local testing.
   console.log(`
 ========================================
 PASSWORD RESET

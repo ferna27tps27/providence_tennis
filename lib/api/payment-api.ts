@@ -8,7 +8,15 @@ export interface Payment {
   id: string;
   memberId?: string;
   reservationId?: string;
-  type: "court_booking" | "membership" | "other";
+  type:
+    | "court_booking"
+    | "membership"
+    | "lesson_package"
+    | "private_lesson"
+    | "program_fee"
+    | "refund"
+    | "manual_charge"
+    | "other";
   amount: number;
   currency: string;
   status: "pending" | "paid" | "refunded" | "failed" | "cancelled";
@@ -26,7 +34,15 @@ export interface Payment {
 export interface PaymentFilter {
   memberId?: string;
   status?: "pending" | "paid" | "refunded" | "failed" | "cancelled";
-  type?: "court_booking" | "membership" | "other";
+  type?:
+    | "court_booking"
+    | "membership"
+    | "lesson_package"
+    | "private_lesson"
+    | "program_fee"
+    | "refund"
+    | "manual_charge"
+    | "other";
   startDate?: string;
   endDate?: string;
 }
@@ -135,6 +151,7 @@ export async function createPaymentIntent(
     amount: number; // Amount in dollars (e.g. 40 for $40)
     reservationId?: string;
     description?: string;
+    metadata?: Record<string, string>;
   }
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const response = await fetch(`${API_BASE_URL}/api/payments/create-intent`, {
@@ -148,6 +165,7 @@ export async function createPaymentIntent(
       currency: "usd",
       reservationId: options.reservationId,
       description: options.description || "Court Booking - 1 Hour",
+      metadata: options.metadata,
     }),
   });
 

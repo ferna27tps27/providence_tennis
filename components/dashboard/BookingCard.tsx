@@ -17,7 +17,7 @@ interface BookingCardProps {
       end: string;
     };
     memberId?: string;
-    status: "confirmed" | "cancelled";
+    status: "pending_payment" | "confirmed" | "cancelled";
     paymentStatus?: "pending" | "paid" | "refunded" | "failed";
     paymentAmount?: number;
     createdAt: string;
@@ -51,6 +51,7 @@ export default function BookingCard({
   const bookingStart = new Date(`${reservation.date}T${reservation.timeSlot?.start ?? "00:00"}`);
   const isUpcoming = bookingStart >= new Date();
   const isCancelled = reservation.status === "cancelled";
+  const isPendingPayment = reservation.status === "pending_payment";
   const showConfirm = confirmCancelId === reservation.id;
   const useInlineConfirm = Boolean(onCancelClick && onKeep && onConfirmCancel);
   const isCoach = user?.role === "coach" || user?.role === "admin";
@@ -116,12 +117,20 @@ export default function BookingCard({
               className={`px-2 py-1 text-xs font-semibold rounded-full ${
                 isCancelled
                   ? "bg-gray-100 text-gray-600"
+                  : isPendingPayment
+                  ? "bg-yellow-100 text-yellow-700"
                   : isUpcoming
                   ? "bg-green-100 text-green-700"
                   : "bg-primary-100 text-primary-700"
               }`}
             >
-              {isCancelled ? "Cancelled" : isUpcoming ? "Upcoming" : "Past"}
+              {isCancelled
+                ? "Cancelled"
+                : isPendingPayment
+                ? "Payment Pending"
+                : isUpcoming
+                ? "Upcoming"
+                : "Past"}
             </span>
           </div>
 

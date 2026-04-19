@@ -12,7 +12,7 @@ export default function JournalPage() {
   if (!user) return null;
 
   // Show different views based on role
-  const isCoach = user.role === "coach" || user.role === "admin";
+  const isCoach = user.role === "coach" || user.role === "admin" || user.role === "owner";
   const isPlayer = user.role === "player";
 
   return (

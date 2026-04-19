@@ -11,6 +11,7 @@ declare global {
   namespace Express {
     interface Request {
       session?: {
+        sessionId?: string;
         memberId: string;
         email: string;
         role: string;
@@ -22,11 +23,11 @@ declare global {
 /**
  * Middleware to authenticate requests
  */
-export function authenticate(
+export async function authenticate(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -38,7 +39,7 @@ export function authenticate(
     const token = authHeader.substring(7); // Remove "Bearer " prefix
     
     // Verify token
-    const session = verifyToken(token);
+    const session = await verifyToken(token);
     
     if (!session) {
       throw new UnauthorizedError("Invalid or expired token");
@@ -46,6 +47,7 @@ export function authenticate(
     
     // Attach session to request
     req.session = {
+      sessionId: session.sessionId,
       memberId: session.memberId,
       email: session.email,
       role: session.role,
@@ -110,20 +112,21 @@ export function requireRole(...allowedRoles: string[]) {
 /**
  * Optional authentication - attaches session if token is valid, but doesn't require it
  */
-export function optionalAuth(
+export async function optionalAuth(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
     
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
-      const session = verifyToken(token);
+      const session = await verifyToken(token);
       
       if (session) {
         req.session = {
+          sessionId: session.sessionId,
           memberId: session.memberId,
           email: session.email,
           role: session.role,

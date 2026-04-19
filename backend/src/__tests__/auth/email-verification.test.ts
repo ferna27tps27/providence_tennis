@@ -16,63 +16,63 @@ describe("Email Verification", () => {
   });
 
   describe("createVerificationToken", () => {
-    it("should create a verification token", () => {
-      const token = createVerificationToken("test@example.com");
+    it("should create a verification token", async () => {
+      const token = await createVerificationToken("test@example.com");
       
       expect(token).toBeDefined();
       expect(typeof token).toBe("string");
       expect(token.length).toBeGreaterThan(0);
     });
 
-    it("should create different tokens for different emails", () => {
-      const token1 = createVerificationToken("test1@example.com");
-      const token2 = createVerificationToken("test2@example.com");
+    it("should create different tokens for different emails", async () => {
+      const token1 = await createVerificationToken("test1@example.com");
+      const token2 = await createVerificationToken("test2@example.com");
       
       expect(token1).not.toBe(token2);
     });
 
-    it("should replace existing token for same email", () => {
-      const token1 = createVerificationToken("test@example.com");
-      const token2 = createVerificationToken("test@example.com");
+    it("should replace existing token for same email", async () => {
+      const token1 = await createVerificationToken("test@example.com");
+      const token2 = await createVerificationToken("test@example.com");
       
       // Should create a new token (replacing the old one)
       expect(token2).toBeDefined();
       // The old token should be invalid
-      const result1 = verifyToken(token1);
+      const result1 = await verifyToken(token1);
       expect(result1.valid).toBe(false);
     });
   });
 
   describe("verifyToken", () => {
-    it("should verify a valid token", () => {
-      const token = createVerificationToken("test@example.com");
-      const result = verifyToken(token);
+    it("should verify a valid token", async () => {
+      const token = await createVerificationToken("test@example.com");
+      const result = await verifyToken(token);
       
       expect(result.valid).toBe(true);
       expect(result.email).toBe("test@example.com");
     });
 
-    it("should return invalid for non-existent token", () => {
-      const result = verifyToken("nonexistent-token");
+    it("should return invalid for non-existent token", async () => {
+      const result = await verifyToken("nonexistent-token");
       
       expect(result.valid).toBe(false);
       expect(result.email).toBe("");
     });
 
-    it("should return invalid for already used token", () => {
-      const token = createVerificationToken("test@example.com");
+    it("should return invalid for already used token", async () => {
+      const token = await createVerificationToken("test@example.com");
       
       // First verification should succeed
-      const result1 = verifyToken(token);
+      const result1 = await verifyToken(token);
       expect(result1.valid).toBe(true);
       
       // Second verification should fail (token already used)
-      const result2 = verifyToken(token);
+      const result2 = await verifyToken(token);
       expect(result2.valid).toBe(false);
     });
 
-    it("should return invalid for empty token", () => {
-      const result = verifyToken("");
+    it("should return invalid for empty token", async () => {
+      const result = await verifyToken("");
       
       expect(result.valid).toBe(false);
       expect(result.email).toBe("");

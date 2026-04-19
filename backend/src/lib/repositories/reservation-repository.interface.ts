@@ -36,7 +36,9 @@ export interface IReservationRepository {
    * @throws LockError if lock cannot be acquired
    */
   create(
-    reservation: Omit<Reservation, "id" | "createdAt" | "status">
+    reservation: Omit<Reservation, "id" | "createdAt" | "status"> & {
+      status?: Reservation["status"];
+    }
   ): Promise<Reservation>;
 
   /**
