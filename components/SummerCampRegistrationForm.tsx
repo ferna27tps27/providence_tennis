@@ -258,7 +258,7 @@ export default function SummerCampRegistrationForm() {
             follow up with the next steps for deposit and arrival details.
           </p>
 
-          <div className="mt-6 grid gap-3 rounded-3xl bg-primary-50 p-5">
+          <div className="mt-6 grid gap-3 rounded-lg bg-primary-50 p-5">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-semibold text-gray-600">Confirmation code</span>
               <span className="rounded-full bg-white px-4 py-2 text-sm font-bold tracking-[0.16em] text-primary-700">
@@ -307,7 +307,7 @@ export default function SummerCampRegistrationForm() {
                 "We confirm your camp placement and share any follow-up details.",
                 "If you selected multiple weeks, we will help finalize the schedule.",
               ].map((step, index) => (
-                <div key={step} className="flex gap-3 rounded-2xl bg-white/10 p-4">
+                <div key={step} className="flex gap-3 rounded-lg bg-white/10 p-4">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-primary-700">
                     {index + 1}
                   </div>
@@ -346,7 +346,7 @@ export default function SummerCampRegistrationForm() {
 
                 <div className="mt-6">
                   {depositLoading && !depositClientSecret ? (
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">
                       Preparing deposit checkout...
                     </div>
                   ) : depositClientSecret ? (
@@ -364,14 +364,14 @@ export default function SummerCampRegistrationForm() {
                       loading={depositLoading}
                     />
                   ) : (
-                    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                       {depositError || "We could not prepare the deposit checkout."}
                     </div>
                   )}
                 </div>
 
                 {depositError && depositClientSecret && (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {depositError}
                   </div>
                 )}
@@ -446,7 +446,7 @@ export default function SummerCampRegistrationForm() {
         </div>
 
         {errorMessage && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
           </div>
         )}
@@ -461,7 +461,7 @@ export default function SummerCampRegistrationForm() {
                 value={formData.guardianName}
                 onChange={(event) => updateField("guardianName", event.target.value)}
                 required
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
                 placeholder="Parent or guardian"
               />
             </div>
@@ -474,7 +474,7 @@ export default function SummerCampRegistrationForm() {
                 value={formData.guardianEmail}
                 onChange={(event) => updateField("guardianEmail", event.target.value)}
                 required
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
                 placeholder="you@example.com"
               />
             </div>
@@ -487,7 +487,7 @@ export default function SummerCampRegistrationForm() {
                 value={formData.guardianPhone}
                 onChange={(event) => updateField("guardianPhone", event.target.value)}
                 required
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
                 placeholder="401-555-1234"
               />
             </div>
@@ -499,7 +499,7 @@ export default function SummerCampRegistrationForm() {
                 value={formData.playerName}
                 onChange={(event) => updateField("playerName", event.target.value)}
                 required
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
                 placeholder="Player name"
               />
             </div>
@@ -517,7 +517,7 @@ export default function SummerCampRegistrationForm() {
                 value={formData.playerAge}
                 onChange={(event) => updateField("playerAge", event.target.value)}
                 required
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
                 placeholder="8"
               />
             </div>
@@ -528,7 +528,7 @@ export default function SummerCampRegistrationForm() {
               <select
                 value={formData.skillLevel}
                 onChange={(event) => updateField("skillLevel", event.target.value as SummerCampSkillLevel)}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
               >
                 {skillOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -546,7 +546,7 @@ export default function SummerCampRegistrationForm() {
                 onChange={(event) =>
                   updateField("contactPreference", event.target.value as "email" | "phone")
                 }
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
               >
                 <option value="email">Email</option>
                 <option value="phone">Phone</option>
@@ -562,7 +562,7 @@ export default function SummerCampRegistrationForm() {
               <select
                 value={formData.track}
                 onChange={(event) => updateField("track", event.target.value as SummerCampTrack)}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
               >
                 {trackOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -583,7 +583,7 @@ export default function SummerCampRegistrationForm() {
                     event.target.value as SummerCampSessionPreference
                   )
                 }
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
               >
                 {sessionOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -616,7 +616,7 @@ export default function SummerCampRegistrationForm() {
                     key={week}
                     type="button"
                     onClick={() => toggleWeek(week)}
-                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    className={`rounded-lg border px-4 py-3 text-left text-sm font-semibold transition ${
                       active
                         ? "border-primary-500 bg-primary-50 text-primary-700 shadow-sm"
                         : "border-gray-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50"
@@ -637,12 +637,12 @@ export default function SummerCampRegistrationForm() {
               value={formData.notes}
               onChange={(event) => updateField("notes", event.target.value)}
               rows={4}
-              className="w-full rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition focus:border-primary-400 focus:bg-white"
               placeholder="Anything we should know about your player, schedule, allergies, or goals?"
             />
           </div>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-3xl bg-accent-50 px-4 py-4">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-accent-50 px-4 py-4">
             <input
               type="checkbox"
               checked={formData.depositAcknowledged}
@@ -684,15 +684,15 @@ export default function SummerCampRegistrationForm() {
             At a glance
           </p>
           <div className="mt-5 space-y-3">
-            <div className="rounded-2xl bg-primary-50 px-4 py-3 text-sm text-gray-700">
+            <div className="rounded-lg bg-primary-50 px-4 py-3 text-sm text-gray-700">
               <span className="font-semibold text-gray-900">Track:</span>{" "}
               {trackOptions.find((option) => option.value === formData.track)?.label}
             </div>
-            <div className="rounded-2xl bg-accent-50 px-4 py-3 text-sm text-gray-700">
+            <div className="rounded-lg bg-accent-50 px-4 py-3 text-sm text-gray-700">
               <span className="font-semibold text-gray-900">Session:</span>{" "}
               {sessionOptions.find((option) => option.value === formData.sessionPreference)?.label}
             </div>
-            <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
               <span className="font-semibold text-gray-900">Weeks:</span>{" "}
               {selectedWeeks.length ? selectedWeeks.join(", ") : "Pick at least one"}
             </div>
@@ -709,7 +709,7 @@ export default function SummerCampRegistrationForm() {
               "We confirm whether the camp fits your preferred schedule.",
               "We follow up with the payment and arrival information.",
             ].map((step, index) => (
-              <div key={step} className="flex gap-3 rounded-2xl bg-gray-50 p-4">
+              <div key={step} className="flex gap-3 rounded-lg bg-gray-50 p-4">
                 <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white">
                   {index + 1}
                 </div>

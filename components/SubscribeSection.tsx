@@ -5,11 +5,11 @@ import { useState } from "react";
 
 export default function SubscribeSection() {
   const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "success">("idle");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle subscription
-    alert("Thank you for subscribing!");
+    setStatus("success");
     setEmail("");
   };
 
@@ -34,6 +34,11 @@ export default function SubscribeSection() {
             Stay updated with the latest news, events, and programs from
             Providence Tennis Academy.
           </p>
+          {status === "success" && (
+            <div className="mx-auto mb-6 max-w-md rounded-md border border-white/30 bg-white/15 px-4 py-3 text-sm font-medium text-white">
+              Thank you for subscribing. We will keep you posted on Providence Tennis updates.
+            </div>
+          )}
           <form
             onSubmit={handleSubmit}
             className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto"
@@ -48,7 +53,7 @@ export default function SubscribeSection() {
             />
             <button
               type="submit"
-              className="bg-white text-primary-600 font-semibold py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors transform hover:scale-105 whitespace-nowrap"
+              className="rounded-md bg-white px-8 py-3 font-semibold text-primary-700 shadow-sm transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-700 whitespace-nowrap"
             >
               SIGN UP
             </button>

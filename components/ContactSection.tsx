@@ -67,12 +67,12 @@ export default function ContactSection() {
           >
             <h3 className="text-2xl font-bold mb-6">Drop us a line!</h3>
             {submitSuccess && (
-              <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                 {submitSuccess}
               </div>
             )}
             {submitError && (
-              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {submitError}
               </div>
             )}
@@ -152,17 +152,31 @@ export default function ContactSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div id="staff" className="card bg-white">
-              <h3 className="text-2xl font-bold mb-6">
-                Better yet, see us in person!
+            <div id="staff" className="card bg-white scroll-mt-28">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-primary-700">
+                Professional Staff
+              </p>
+              <h3 className="text-2xl font-bold mb-4">
+                USTA Safe Play approved coaching team
               </h3>
               <p className="text-gray-600 leading-relaxed mb-6">
-                We love our customers, so feel free to visit during normal
-                business hours to learn more about our adult tennis programs,
-                junior tennis programs, and various tennis camps. Whether
-                you're interested in Providence tennis or looking for tennis
-                lessons, we're here to help!
+                Providence Tennis is led by Nestor Bernabe, Owner and Director
+                of Tennis, with a staff that supports junior development, adult
+                academy programs, summer camp, tournaments, and private lessons.
               </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[
+                  "Nestor Bernabe",
+                  "Marcus Mitchell",
+                  "Natalia Vergara",
+                  "Erica Botelho",
+                  "Ethan Clegg",
+                ].map((name) => (
+                  <div key={name} className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800">
+                    {name}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div id="locations" className="card bg-gradient-to-br from-primary-50 to-white">
@@ -181,7 +195,7 @@ export default function ContactSection() {
                     <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span>1000 Elmwood Avenue, Providence, RI, USA</span>
+                  <span>1000 Elmwood Avenue, Providence, RI 02907</span>
                 </div>
                 <div className="flex items-center">
                   <svg
@@ -196,10 +210,49 @@ export default function ContactSection() {
                     <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                   <a
-                    href="tel:401-935-4336"
+                    href="tel:4012190860"
                     className="hover:text-primary-600 transition-colors"
                   >
-                    401-935-4336
+                    Office: 401-219-0860
+                  </a>
+                </div>
+                <div className="flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-3 text-primary-600"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
+                    <path d="M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <a
+                    href="mailto:ProvidenceTennis@gmail.com"
+                    className="hover:text-primary-600 transition-colors"
+                  >
+                    ProvidenceTennis@gmail.com
+                  </a>
+                </div>
+                <div className="flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-3 text-primary-600"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path d="M3 5a2 2 0 012-2h2l2 5-2 1a11 11 0 005 5l1-2 5 2v2a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <a
+                    href="tel:4019354336"
+                    className="hover:text-primary-600 transition-colors"
+                  >
+                    Program phone: 401-935-4336
                   </a>
                 </div>
               </div>
@@ -209,9 +262,17 @@ export default function ContactSection() {
               <h4 className="text-xl font-bold mb-4">Hours</h4>
               <div className="space-y-2 text-gray-700">
                 <div className="flex justify-between">
-                  <span className="font-medium">Open today</span>
-                  <span>08:00 am – 09:00 pm</span>
+                  <span className="font-medium">Monday-Friday</span>
+                  <span>7:30 am - 9:00 pm</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Saturday-Sunday</span>
+                  <span>7:30 am - 6:00 pm</span>
+                </div>
+                <p className="pt-2 text-sm text-gray-500">
+                  Outdoor season hours may shift with weather and court conditions.
+                  Check CourtReserve for same-day court sheets and updates.
+                </p>
               </div>
             </div>
           </motion.div>

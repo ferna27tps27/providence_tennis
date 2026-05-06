@@ -281,7 +281,7 @@ export default function CoachAIWorkspace() {
                     className={`flex ${message.role === "assistant" ? "justify-start" : "justify-end"}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
+                      className={`max-w-[85%] rounded-lg px-4 py-3 text-sm shadow-sm ${
                         message.role === "assistant"
                           ? "rounded-bl-md border border-slate-200 bg-white text-slate-700"
                           : "rounded-br-md bg-gradient-to-r from-primary-600 to-emerald-500 text-white"
@@ -299,7 +299,7 @@ export default function CoachAIWorkspace() {
                 ))}
                 {chatLoading && (
                   <div className="flex justify-start">
-                    <div className="rounded-3xl rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                    <div className="rounded-lg rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
                       Ace is thinking...
                     </div>
                   </div>
@@ -334,7 +334,7 @@ export default function CoachAIWorkspace() {
                   onKeyDown={handleChatKeyDown}
                   rows={3}
                   placeholder="Ask Ace to adjust the current player's plan..."
-                  className="w-full resize-none rounded-2xl border-0 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-0"
+                  className="w-full resize-none rounded-lg border-0 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-0"
                 />
                 <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-2 pt-2">
                   <div className="text-xs text-slate-400">

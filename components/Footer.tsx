@@ -36,8 +36,13 @@ export default function Footer() {
               athletes through discipline, passion, and expert coaching.
             </p>
             <div className="text-primary-400 font-semibold">
-              <a href="tel:401-935-4336" className="hover:text-primary-300 transition-colors">
-                401-935-4336
+              <a href="tel:4012190860" className="hover:text-primary-300 transition-colors">
+                401-219-0860
+              </a>
+            </div>
+            <div className="mt-2 text-sm">
+              <a href="mailto:ProvidenceTennis@gmail.com" className="hover:text-primary-300 transition-colors">
+                ProvidenceTennis@gmail.com
               </a>
             </div>
           </div>

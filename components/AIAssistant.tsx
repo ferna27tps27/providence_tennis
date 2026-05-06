@@ -105,8 +105,8 @@ export default function AIAssistant() {
       {/* Chat Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform"
-        whileHover={{ scale: 1.1 }}
+        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-xl transition-shadow hover:shadow-2xl md:bottom-6 md:right-6 md:h-16 md:w-16"
+        whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Open AI Assistant"
       >
@@ -144,7 +144,7 @@ export default function AIAssistant() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-50 w-96 max-w-[calc(100vw-3rem)] h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+            className="fixed bottom-20 right-4 z-50 flex h-[min(600px,calc(100vh-6rem))] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl md:bottom-24 md:right-6"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex items-center justify-between">
@@ -183,7 +183,7 @@ export default function AIAssistant() {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
                       message.role === "user"
                         ? "bg-primary-600 text-white"
                         : "bg-white text-gray-800 border border-gray-200"
@@ -217,7 +217,7 @@ export default function AIAssistant() {
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-white rounded-2xl px-4 py-3 border border-gray-200">
+                  <div className="bg-white rounded-lg px-4 py-3 border border-gray-200">
                     <div className="flex space-x-2">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                       <div

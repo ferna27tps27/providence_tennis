@@ -41,7 +41,7 @@ export default function Hero() {
         >
           {/* Main Heading */}
           <motion.h1
-            className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 text-center leading-tight"
+            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold mb-8 text-center leading-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
@@ -61,9 +61,10 @@ export default function Hero() {
             transition={{ delay: 0.4, duration: 0.8 }}
           >
             Our accredited coaching staff is the most experienced in the area,
-            boasting a proud history of developing players in Rhode Island since
-            2008! With over 50 years of combined expertise, our proven training
-            methods help players of all levels reach their full potential.
+            with a proud history of developing players in Rhode Island since
+            2008. We offer junior tennis, adult academy programs, summer camp,
+            tournaments, pickleball, court reservations, and 2026 playing options
+            at Roger Williams Park.
           </motion.p>
 
           <motion.div
@@ -88,12 +89,12 @@ export default function Hero() {
             transition={{ delay: 0.8, duration: 0.8 }}
           >
             <div className="card bg-white/90 backdrop-blur-md border border-gray-100">
-              <div className="text-4xl font-bold gradient-text mb-2">16+</div>
-              <div className="text-gray-700 font-medium">Years of Excellence</div>
+              <div className="text-4xl font-bold gradient-text mb-2">Since 2008</div>
+              <div className="text-gray-700 font-medium">Developing Rhode Island Players</div>
             </div>
             <div className="card bg-white/90 backdrop-blur-md border border-gray-100">
-              <div className="text-4xl font-bold gradient-text mb-2">50+</div>
-              <div className="text-gray-700 font-medium">Years Combined Experience</div>
+              <div className="text-4xl font-bold gradient-text mb-2">2026</div>
+              <div className="text-gray-700 font-medium">Memberships and Camps Available</div>
             </div>
             <div className="card bg-white/90 backdrop-blur-md border border-gray-100">
               <div className="text-4xl font-bold gradient-text mb-2">10</div>

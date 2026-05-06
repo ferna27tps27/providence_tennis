@@ -106,7 +106,7 @@ export default function ContactSubmissionsWorkspace() {
         </div>
 
         {submissions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
             <p className="text-lg font-semibold text-gray-800">No contact submissions yet.</p>
             <p className="mt-2 text-sm text-gray-500">
               Messages sent through the public contact form will show up here.
@@ -117,7 +117,7 @@ export default function ContactSubmissionsWorkspace() {
             {submissions.map((submission) => (
               <article
                 key={submission.id}
-                className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2">

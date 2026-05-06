@@ -9,9 +9,9 @@ export default function MissionProgramsFacilities() {
 
   const missionFullText = `At Providence Tennis, our mission is to create a fun and exciting atmosphere where players of all ages and skill levels can enhance their abilities and enjoy the sport of tennis. We offer a range of programs, including adult tennis programs and junior tennis programs, to cater to everyone. Our tennis camps and tennis lessons are designed to provide the highest quality facilities and coaching to our members.`;
 
-  const facilitiesFullText = `Our facilities offer an exceptional experience for all players, featuring 10 outdoor Har-Tru clay courts, seasonal indoor hard courts, and a full pro shop for all your equipment needs and repairs. We maintain our courts to the highest standards, ensuring optimal playing conditions. All outdoor courts come equipped with PLAYSIGHT FREE LIVE STREAMING and WIFI throughout our facilities. Additionally, we provide a variety of adult tennis programs and junior tennis programs, as well as engaging tennis camps and personalized tennis lessons. Excitingly, the Play REPLAY Electric Line Calling System will be joining our facility in March 2026!`;
+  const facilitiesFullText = `Our facilities offer an exceptional experience for all players, featuring 10 outdoor Har-Tru clay courts, seasonal indoor hard courts, and a full pro shop for equipment needs and repairs. We maintain our courts to the highest standards, and all outdoor courts include PlaySight free live streaming and WiFi throughout the facility.`;
 
-  const programsText = `We offer a wide range of adult tennis programs and junior tennis programs, including private lessons, group lessons, clinics, and tennis camps. Our experienced coaches use a personalized approach to help each player achieve their goals and reach their full potential in Providence tennis.`;
+  const programsText = `We offer junior tennis, adult academy programs, private lessons, group lessons, clinics, tournaments, pickleball, and summer camp. Our experienced coaches use a personalized approach to help each player achieve their goals and reach their full potential in Providence tennis.`;
 
   const sections = [
     {

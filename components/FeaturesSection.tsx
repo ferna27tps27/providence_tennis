@@ -1,19 +1,18 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 
 export default function FeaturesSection() {
   const features = [
       {
-        title: "SMART COURTS with ELECTRIC LINE CALLING COMING SOON!",
-        subtitle: "Coming March 2026",
+        title: "COURTRESERVE FOR REGISTRATION AND RESERVATIONS",
+        subtitle: "2026 programs are available",
         description:
-        "PlayReplay is the market-leading all-in-one smart court system, offering unmatched real-time tracking of every ball and player, with performance data, an integrated court and mobile app, and tournament tools.",
-      cta: "Find out more about PLAY REPLAY",
-      href: "#contact",
-      gradient: "from-purple-600 to-indigo-600",
-      icon: "⚡",
+        "Use CourtReserve to register for memberships, reserve courts, find current events, review court sheets, and keep up with schedule changes.",
+      cta: "Book or Register",
+      href: "#reservations",
+      gradient: "from-blue-600 to-indigo-700",
+      icon: "📲",
     },
     {
       title: "LIVE STREAMING on ALL 10 COURTS!",
@@ -21,7 +20,7 @@ export default function FeaturesSection() {
         description:
         "Watch your matches live or review them later. All outdoor courts are equipped with PlaySight technology for free live streaming.",
       cta: "PLAY SIGHT LOG IN",
-      href: "#reservations",
+      href: "https://web.playsight.com/",
       gradient: "from-green-600 to-teal-600",
       icon: "📹",
     },
@@ -34,7 +33,7 @@ export default function FeaturesSection() {
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${feature.gradient} text-white p-8 md:p-12`}
+              className={`relative overflow-hidden rounded-lg bg-gradient-to-br ${feature.gradient} text-white p-8 md:p-12`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -61,9 +60,11 @@ export default function FeaturesSection() {
                 <p className="text-lg opacity-90 mb-6 leading-relaxed">
                   {feature.description}
                 </p>
-                <Link
+                <a
                   href={feature.href}
-                  className="inline-flex items-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  target={feature.href.startsWith("http") ? "_blank" : undefined}
+                  rel={feature.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                  className="inline-flex items-center rounded-md bg-white/20 px-6 py-3 font-semibold text-white backdrop-blur-sm transition-colors duration-200 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-700"
                 >
                   {feature.cta}
                   <svg
@@ -77,7 +78,7 @@ export default function FeaturesSection() {
                   >
                     <path d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
-                </Link>
+                </a>
               </div>
             </motion.div>
           ))}

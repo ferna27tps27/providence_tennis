@@ -3,35 +3,32 @@
 import { motion } from "framer-motion";
 
 export default function LatestNews() {
-  const news = {
-    title: "Winter 2025 ENDS December 23. WINTER BREAK December 24 - January 3. WINTER 2026 STARTS JANUARY 4!",
-    content: [
-      {
-        heading: "Last day of Winter 2025 is Tuesday, December 23",
-        details: [
-          "4:30 – 6:30 PM: ALL Juniors",
-          "6:30 – 8:00 PM: Adults Advanced (NTRP 4.0+)",
-        ],
-      },
-      {
-        heading: "December 24 - January 3",
-        details: ["Holiday Break – NO Groups or Lessons"],
-      },
-      {
-        heading: "Please note",
-        details: [
-          "New ownership takes over Tennis RI East Bay on December 29. I'll provide an update regarding Winter 2026 programming once I return home and meet with the new team.",
-        ],
-      },
-      {
-        heading: "WINTER SESSION 2 STARTS: Sunday, January 4",
-        details: [
-          "10:30 AM – 12:00 PM: Future Stars (Under 10)",
-          "12:00 – 3:00 PM: Challengers, High School & Champions Academy",
-        ],
-      },
-    ],
-  };
+  const updates = [
+    {
+      heading: "Spring 2026 programming",
+      badge: "Coming soon",
+      details: [
+        "CourtReserve is the best place to see current groups, court sheets, events, and schedule changes.",
+        "Junior, adult, camp, tournament, and membership information is now available for the 2026 season.",
+      ],
+    },
+    {
+      heading: "Junior Summer Camp 2026",
+      badge: "June 15 - August 21",
+      details: [
+        "Open to players of all skill levels, ages 4-17.",
+        "Full day, half day, drop-in, and unlimited pass options are available.",
+      ],
+    },
+    {
+      heading: "2026 unlimited play memberships",
+      badge: "April 1 - October 31",
+      details: [
+        "Season court memberships include unlimited court time, free ball machine use, program discounts, event discounts, and pro shop discounts.",
+        "A membership is not required to play. Day passes are available for $10 per player.",
+      ],
+    },
+  ];
 
   return (
     <section className="section-container bg-gray-50">
@@ -57,15 +54,15 @@ export default function LatestNews() {
         >
           <div className="mb-6">
             <div className="inline-block bg-primary-100 text-primary-800 text-xs font-semibold px-3 py-1 rounded-full mb-4">
-              IMPORTANT UPDATE
+              2026 SEASON UPDATE
             </div>
             <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 leading-tight">
-              {news.title}
+              Memberships, summer camps, and group information are now available.
             </h3>
           </div>
 
           <div className="space-y-8">
-            {news.content.map((item, index) => (
+            {updates.map((item, index) => (
               <motion.div
                 key={index}
                 className="border-l-4 border-primary-600 pl-6"
@@ -74,9 +71,14 @@ export default function LatestNews() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <h4 className="text-xl font-bold text-gray-900 mb-3">
-                  {item.heading}
-                </h4>
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h4 className="text-xl font-bold text-gray-900">
+                    {item.heading}
+                  </h4>
+                  <span className="w-fit rounded-full bg-accent-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-accent-800">
+                    {item.badge}
+                  </span>
+                </div>
                 <ul className="space-y-2">
                   {item.details.map((detail, idx) => (
                     <li
@@ -100,7 +102,7 @@ export default function LatestNews() {
             transition={{ duration: 0.6, delay: 0.6 }}
           >
             <p className="text-lg text-gray-600 italic">
-              We wish everyone a happy and restful Winter Break!
+              Register, reserve courts, and check the latest events through CourtReserve.
             </p>
           </motion.div>
         </motion.div>

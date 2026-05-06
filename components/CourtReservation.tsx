@@ -408,13 +408,33 @@ export default function CourtReservation({
             className="text-center mb-12"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="gradient-text">Reserve a Court</span>
+              <span className="gradient-text">Reservations & Playing Options</span>
             </h2>
             <div className="w-24 h-1 bg-gradient-to-r from-primary-600 to-primary-400 mx-auto mb-4"></div>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Book your court time online. Select a date, court, and time slot to
-              get started.
+              Book court time, review memberships, and choose the option that
+              fits your season at Roger Williams Park.
             </p>
+            <div className="mt-8 grid grid-cols-1 gap-4 text-left md:grid-cols-4">
+              {[
+                ["Day pass", "$10", "Unlimited court use for the day per player."],
+                ["Individual", "$425", "Season court membership for one player."],
+                ["Student", "$100", "Discounted season court membership."],
+                ["Family", "$800", "Season court membership for the household."],
+              ].map(([label, price, detail]) => (
+                <div key={label} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                    {label}
+                  </p>
+                  <p className="mt-2 text-3xl font-bold text-primary-700">
+                    {price}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">
+                    {detail}
+                  </p>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -815,7 +835,7 @@ export default function CourtReservation({
 
                   <aside className="space-y-4">
                     {showBookingSummary && (
-                      <div className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
+                      <div className="rounded-lg border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
                         <div className="flex items-center justify-between">
                           <h4 className="text-lg font-semibold text-gray-900">Booking Summary</h4>
                           {user && (
@@ -860,7 +880,7 @@ export default function CourtReservation({
                       </div>
                     )}
 
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
                       <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">What happens next</h4>
                       <div className="mt-3 space-y-2">
                         <p>1. We hold your selected time while you finish this step.</p>
@@ -913,7 +933,7 @@ export default function CourtReservation({
                     loading={loading}
                   />
 
-                  <aside className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
+                  <aside className="rounded-lg border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5">
                     <h4 className="text-lg font-semibold text-gray-900">Reservation Details</h4>
                     <div className="mt-4 space-y-3 text-sm text-gray-700">
                       <div className="flex items-start justify-between gap-4">
@@ -967,7 +987,7 @@ export default function CourtReservation({
                     ? "Your court has been booked and payment has been processed successfully."
                     : "Your court reservation has been successfully booked."}
                 </p>
-                <div className="bg-white rounded-2xl p-6 mb-6 text-left max-w-xl mx-auto shadow-sm ring-1 ring-primary-100">
+                <div className="bg-white rounded-lg p-6 mb-6 text-left max-w-xl mx-auto shadow-sm ring-1 ring-primary-100">
                   <p className="text-sm text-gray-600 mb-2">
                     <span className="font-semibold">Reservation ID:</span>{" "}
                     {reservationId}
@@ -992,7 +1012,7 @@ export default function CourtReservation({
                     </div>
                   )}
                 </div>
-                <div className="mx-auto mb-6 max-w-xl rounded-2xl border border-gray-200 bg-gray-50 p-5 text-left">
+                <div className="mx-auto mb-6 max-w-xl rounded-lg border border-gray-200 bg-gray-50 p-5 text-left">
                   <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">What to do next</h4>
                   <div className="mt-3 space-y-2 text-sm text-gray-600">
                     <p>Arrive a few minutes early to check in and get settled on court.</p>

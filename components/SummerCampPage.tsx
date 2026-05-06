@@ -194,7 +194,7 @@ export default function SummerCampPage() {
                 {quickFacts.map((fact) => (
                   <div
                     key={fact.label}
-                    className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-lg backdrop-blur"
+                    className="rounded-lg border border-white/80 bg-white/90 p-4 shadow-lg backdrop-blur"
                   >
                     <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-500">
                       {fact.label}
@@ -229,7 +229,7 @@ export default function SummerCampPage() {
 
               <div className="mt-6 space-y-4">
                 {overviewPoints.map((point, index) => (
-                  <div key={index} className="flex gap-3 rounded-2xl bg-gray-50 p-4">
+                  <div key={index} className="flex gap-3 rounded-lg bg-gray-50 p-4">
                     <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white">
                       {index + 1}
                     </div>
@@ -281,7 +281,7 @@ export default function SummerCampPage() {
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-primary-50 p-5">
+              <div className="rounded-lg bg-primary-50 p-5">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">
                   Location
                 </p>
@@ -292,7 +292,7 @@ export default function SummerCampPage() {
                   1000 Elmwood Avenue, Providence, Rhode Island 02907
                 </p>
               </div>
-              <div className="rounded-2xl bg-accent-50 p-5">
+              <div className="rounded-lg bg-accent-50 p-5">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-accent-700">
                   Registration
                 </p>
@@ -324,7 +324,7 @@ export default function SummerCampPage() {
                 "Rain day policy is currently listed as TBA, so this should be easy to update without redesigning the page.",
                 "One page should cover tennis camp, future stars, and the schedule without sending families through multiple dead ends.",
               ].map((item, index) => (
-                <div key={index} className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm">
+                <div key={index} className="flex gap-3 rounded-lg bg-white p-4 shadow-sm">
                   <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-primary-600" />
                   <p className="text-sm leading-6 text-gray-700">{item}</p>
                 </div>
@@ -364,7 +364,7 @@ export default function SummerCampPage() {
               viewport={{ once: true }}
               transition={{ duration: 0.55, delay: index * 0.08 }}
               whileHover={{ y: -6 }}
-              className="overflow-hidden rounded-3xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 shadow-lg"
+              className="overflow-hidden rounded-lg border border-gray-200 bg-gradient-to-b from-white to-gray-50 shadow-lg"
             >
               <div className={`h-2 bg-gradient-to-r ${program.accent}`} />
               <div className="p-6 lg:p-8">
@@ -386,7 +386,7 @@ export default function SummerCampPage() {
                   {program.summary}
                 </p>
 
-                <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-gray-200">
+                <div className="mt-5 rounded-lg bg-white p-4 ring-1 ring-gray-200">
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-gray-500">
                     Schedule
                   </p>
@@ -399,7 +399,7 @@ export default function SummerCampPage() {
                   {program.rates.map((rate) => (
                     <div
                       key={rate}
-                      className="rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700"
+                      className="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700"
                     >
                       {rate}
                     </div>
@@ -445,7 +445,7 @@ export default function SummerCampPage() {
               {programCards[0].rates.map((rate) => (
                 <div
                   key={rate}
-                  className="rounded-2xl bg-primary-50 px-4 py-3 text-sm leading-6 text-gray-800"
+                  className="rounded-lg bg-primary-50 px-4 py-3 text-sm leading-6 text-gray-800"
                 >
                   {rate}
                 </div>
@@ -470,7 +470,7 @@ export default function SummerCampPage() {
               {programCards[1].rates.map((rate) => (
                 <div
                   key={rate}
-                  className="rounded-2xl bg-accent-50 px-4 py-3 text-sm leading-6 text-gray-800"
+                  className="rounded-lg bg-accent-50 px-4 py-3 text-sm leading-6 text-gray-800"
                 >
                   {rate}
                 </div>
@@ -484,7 +484,7 @@ export default function SummerCampPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.12 }}
-          className="mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+          className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -588,7 +588,7 @@ export default function SummerCampPage() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="rounded-2xl bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm ring-1 ring-gray-200"
+                  className="rounded-lg bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm ring-1 ring-gray-200"
                 >
                   {item}
                 </div>

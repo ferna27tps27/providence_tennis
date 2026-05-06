@@ -1,49 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 export default function CountdownTimer() {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
-
-  // Set target date: March 2026 (using March 1, 2026 as example)
-  const targetDate = new Date("2026-03-01T00:00:00").getTime();
-
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor(
-            (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-          ),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        });
-      } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeUnits = [
-    { label: "Days", value: timeLeft.days },
-    { label: "Hours", value: timeLeft.hours },
-    { label: "Minutes", value: timeLeft.minutes },
-    { label: "Seconds", value: timeLeft.seconds },
+  const seasonHighlights = [
+    {
+      label: "Season court memberships",
+      value: "April 1 - October 31",
+      detail: "28-week unlimited play options for individuals, students, and families.",
+    },
+    {
+      label: "Day pass",
+      value: "$10",
+      detail: "Non-season court pass players can still enjoy unlimited court use for the day.",
+    },
+    {
+      label: "Summer camp",
+      value: "June 15 - August 21",
+      detail: "Full day, half day, drop-in, and unlimited pass options for ages 4-17.",
+    },
+    {
+      label: "Location",
+      value: "Roger Williams Park",
+      detail: "Providence Tennis Center, 1000 Elmwood Avenue, Providence, RI.",
+    },
   ];
 
   return (
@@ -63,36 +43,29 @@ export default function CountdownTimer() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-3xl md:text-5xl font-bold mb-4">
-            Season 6 at ROGER WILLIAMS PARK IS almost here!
+            Season 6 at Roger Williams Park is underway.
           </h2>
           <p className="text-xl md:text-2xl mb-12 opacity-90">
-            The date is approaching fast and we're making preparations. Don't
-            miss out!
+            Join us for 2026 unlimited play memberships, day passes, junior
+            summer camp, adult groups, tournaments, and pickleball.
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {timeUnits.map((unit, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+            {seasonHighlights.map((item, index) => (
               <motion.div
                 key={index}
-                className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20"
+                className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/20 text-left"
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 whileHover={{ scale: 1.05 }}
               >
-                <motion.div
-                  className="text-4xl md:text-6xl font-bold mb-2"
-                  key={`${unit.label}-${unit.value}`}
-                  initial={{ scale: 1.2 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {String(unit.value).padStart(2, "0")}
-                </motion.div>
-                <div className="text-sm md:text-lg opacity-90 uppercase tracking-wider">
-                  {unit.label}
+                <div className="text-sm font-bold uppercase tracking-wider opacity-80">
+                  {item.label}
                 </div>
+                <div className="mt-3 text-2xl font-bold">{item.value}</div>
+                <p className="mt-3 text-sm leading-6 opacity-90">{item.detail}</p>
               </motion.div>
             ))}
           </div>

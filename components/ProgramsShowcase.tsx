@@ -1,37 +1,69 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import Image from "next/image";
 
 export default function ProgramsShowcase() {
   const programs = [
     {
       id: "juniors",
-      title: "JUNIORS TENNIS",
-      description: "Comprehensive junior tennis programs for all skill levels",
+      title: "JUNIOR TENNIS",
+      description:
+        "Junior Champions Academy development and high-performance training for committed players.",
       gradient: "from-green-500 to-emerald-600",
       href: "#juniors",
       image: "/images/pt-courts-day.jpeg",
-      alt: "Young boy playing tennis, focused on hitting the ball",
+      alt: "Providence Tennis Har-Tru courts",
+    },
+    {
+      id: "summer-camp",
+      title: "SUMMER CAMP",
+      description:
+        "June 15 - August 21, 2026. Full day, half day, drop-in, and unlimited pass options for ages 4-17.",
+      gradient: "from-amber-500 to-orange-600",
+      href: "/summer-camp",
+      image: "/images/pt-courts-sunset.jpeg",
+      alt: "Providence Tennis courts at sunset",
     },
     {
       id: "adults",
       title: "ADULT TENNIS",
-      description: "Adult programs designed for competitive and recreational players",
+      description:
+        "Adult Academy programs focused on cardio, training repetition, and match play.",
       gradient: "from-blue-500 to-indigo-600",
       href: "#adults",
       image: "/images/pt-courts-day.jpeg",
-      alt: "Two women enjoying a game of tennis outdoors",
+      alt: "Providence Tennis courts",
+    },
+    {
+      id: "pickleball",
+      title: "PICKLEBALL",
+      description:
+        "Providence Pickleball Club at Roger Williams Park with 2026 memberships and playing options.",
+      gradient: "from-teal-500 to-cyan-600",
+      href: "https://providencepickleball.com/",
+      image: "/images/pt-courts-day.jpeg",
+      alt: "Outdoor courts at Providence Tennis",
+    },
+    {
+      id: "memberships",
+      title: "PLAYING OPTIONS",
+      description:
+        "Day passes, individual, student, and family season court memberships for the 2026 season.",
+      gradient: "from-slate-600 to-gray-800",
+      href: "#reservations",
+      image: "/images/pt-tennis-and-ball.jpeg",
+      alt: "Tennis ball and racket on court",
     },
     {
       id: "tournaments",
       title: "COMPETITION",
-      description: "Tournaments and competitive play opportunities",
-      gradient: "from-purple-500 to-pink-600",
+      description:
+        "USTA tournaments, UTR events, ladder matches, junior team tennis, and competitive play.",
+      gradient: "from-purple-500 to-fuchsia-600",
       href: "#tournaments",
       image: "/images/pt-courts-day.jpeg",
-      alt: "Competitive tennis match",
+      alt: "Providence Tennis courts prepared for match play",
     },
   ];
 
@@ -53,7 +85,7 @@ export default function ProgramsShowcase() {
           <div className="w-24 h-1 bg-gradient-to-r from-primary-600 to-primary-400 mx-auto"></div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {programs.map((program, index) => (
             <motion.div
               key={program.id}
@@ -64,14 +96,16 @@ export default function ProgramsShowcase() {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               whileHover={{ y: -10 }}
             >
-              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${program.gradient} text-white min-h-[400px] group`}>
-                <Link
+              <div className={`relative overflow-hidden rounded-lg bg-gradient-to-br ${program.gradient} text-white min-h-[400px] group`}>
+                <a
                   href={program.href}
+                  target={program.href.startsWith("http") ? "_blank" : undefined}
+                  rel={program.href.startsWith("http") ? "noopener noreferrer" : undefined}
                   className="absolute inset-0 z-20"
                   aria-label={program.title}
                 >
                   <span className="sr-only">{program.title}</span>
-                </Link>
+                </a>
                 
                 {/* Background Image */}
                 <div className="absolute inset-0 z-0">

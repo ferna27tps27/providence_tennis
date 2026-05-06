@@ -279,7 +279,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-24 right-6 w-[450px] h-[650px] bg-white rounded-2xl shadow-2xl z-40 flex flex-col border border-gray-200"
+            className="fixed bottom-24 right-6 w-[450px] h-[650px] bg-white rounded-lg shadow-2xl z-40 flex flex-col border border-gray-200"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 rounded-t-2xl">
@@ -354,7 +354,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                   }`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[85%] rounded-lg px-4 py-3 ${
                       message.role === "user"
                         ? "bg-gradient-to-r from-primary-600 to-primary-500 text-white"
                         : message.conflictInfo?.hasConflict
@@ -416,7 +416,7 @@ export default function AdminAIAssistant({ token, userRole }: AdminAIAssistantPr
                   animate={{ opacity: 1 }}
                   className="flex justify-start"
                 >
-                  <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-2">
                     <div className="flex gap-1">
                       <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce"></div>
                       <div
