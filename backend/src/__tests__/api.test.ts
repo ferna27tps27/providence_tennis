@@ -5,6 +5,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import app from "../app";
 import { reservationCache } from "../lib/cache/reservation-cache";
+import { disconnectPrismaClientForTests } from "../lib/db/prisma-client";
 import { reservationRepository } from "../lib/repositories/file-reservation-repository";
 
 let tempDir = "";
@@ -61,6 +62,51 @@ afterEach(async () => {
 });
 
 describe("backend api", () => {
+  it("reports healthy when using file-backed storage", async () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    await disconnectPrismaClientForTests();
+
+    try {
+      const response = await request(app).get("/api/health");
+
+      expect(response.status).toBe(200);
+      expect(response.body.ok).toBe(true);
+      expect(response.body.database).toBe("file");
+      expect(response.body.databaseReachable).toBe(true);
+    } finally {
+      if (originalDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+      await disconnectPrismaClientForTests();
+    }
+  });
+
+  it("reports unhealthy when configured Postgres is unreachable", async () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL =
+      "postgresql://postgres:postgres@127.0.0.1:1/providence_tennis?connect_timeout=1";
+    await disconnectPrismaClientForTests();
+
+    try {
+      const response = await request(app).get("/api/health");
+
+      expect(response.status).toBe(503);
+      expect(response.body.ok).toBe(false);
+      expect(response.body.database).toBe("postgres");
+      expect(response.body.databaseReachable).toBe(false);
+    } finally {
+      if (originalDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+      await disconnectPrismaClientForTests();
+    }
+  });
+
   it("returns courts", async () => {
     const response = await request(app).get("/api/courts");
     expect(response.status).toBe(200);

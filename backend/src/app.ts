@@ -149,6 +149,10 @@ import {
   generateCoachTrainingPlanDraft,
   saveCoachTrainingPlanDraft,
 } from "./lib/coach-ai";
+import {
+  checkDatabaseConnection,
+  isDatabaseRuntimeEnabled,
+} from "./lib/db/prisma-client";
 
 const app = express();
 
@@ -177,11 +181,33 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.get("/api/health", (_req, res) => {
-  return res.json({
-    ok: true,
+app.get("/api/health", async (_req, res) => {
+  const databaseRuntime = isDatabaseRuntimeEnabled() ? "postgres" : "file";
+  let databaseReachable = databaseRuntime === "file";
+
+  if (databaseRuntime === "postgres") {
+    try {
+      databaseReachable = await checkDatabaseConnection();
+    } catch (error) {
+      databaseReachable = false;
+      console.error(
+        JSON.stringify({
+          scope: "health_check",
+          event: "database_unreachable",
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+    }
+  }
+
+  const ok = databaseRuntime === "file" || databaseReachable;
+
+  return res.status(ok ? 200 : 503).json({
+    ok,
     service: "providence-tennis-backend",
-    database: process.env.DATABASE_URL ? "postgres" : "file",
+    database: databaseRuntime,
+    databaseReachable,
     timestamp: new Date().toISOString(),
   });
 });

@@ -2,7 +2,7 @@ services:
   - type: web
     name: ferna27-providence-tennis-web
     runtime: node
-    plan: free
+    plan: standard
     region: virginia
     autoDeploy: true
     buildCommand: npm ci && npm run build
@@ -17,11 +17,11 @@ services:
   - type: web
     name: ferna27-providence-tennis-api
     runtime: node
-    plan: free
+    plan: standard
     region: virginia
     autoDeploy: true
     buildCommand: cd backend && npm ci && npm run db:generate && npm run build
-    startCommand: cd backend && npm run db:push && npm run db:import:json && npm start
+    startCommand: cd backend && (npm run db:push && npm run db:import:json || echo "Database bootstrap failed; continuing startup so health checks can report status") && npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -49,6 +49,6 @@ databases:
   - name: providence-tennis-db
     databaseName: providence_tennis
     user: providence_tennis_user
-    plan: free
+    plan: basic_256mb
     postgresMajorVersion: "16"
     ipAllowList: []

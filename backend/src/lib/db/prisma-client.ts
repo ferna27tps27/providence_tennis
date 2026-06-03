@@ -20,3 +20,23 @@ export function getPrismaClient(): PrismaClient | null {
 
   return globalThis.__providencePrismaClient;
 }
+
+export async function checkDatabaseConnection(): Promise<boolean> {
+  const prisma = getPrismaClient();
+
+  if (!prisma) {
+    return false;
+  }
+
+  await prisma.$queryRaw`SELECT 1`;
+  return true;
+}
+
+export async function disconnectPrismaClientForTests(): Promise<void> {
+  if (!globalThis.__providencePrismaClient) {
+    return;
+  }
+
+  await globalThis.__providencePrismaClient.$disconnect();
+  globalThis.__providencePrismaClient = undefined;
+}
