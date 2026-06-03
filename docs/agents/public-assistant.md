@@ -31,7 +31,7 @@ The AI Agent is an intelligent chat assistant integrated into the Providence Ten
 - **Context Awareness**: Knows about Providence Tennis Academy facilities, programs, and services
 
 ### Technology Stack
-- **Model**: Google Gemini 3 Flash Preview (`gemini-3-flash-preview`)
+- **Model**: Google Gemini 3.5 Flash (`gemini-3.5-flash`)
 - **SDK**: `@google/generative-ai` (v0.21.0)
 - **Frontend**: React with TypeScript
 - **Backend**: Next.js API Routes
@@ -156,7 +156,7 @@ The AI Agent follows a **3-tier architecture**:
 
 #### Configuration
 ```typescript
-- Model: "gemini-3-flash-preview"
+- Model: "gemini-3.5-flash"
 - Tool: googleSearch (for web search capability)
 - System Instruction: TENNIS_CONTEXT (facility information)
 ```
@@ -211,7 +211,7 @@ Add the following to `backend/.env`:
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 ```
 
 3. **Get Google API Key**:
@@ -234,7 +234,7 @@ The AI Assistant will be available on every page via the floating chat button.
 |----------|----------|-------------|
 | `GOOGLE_API_KEY` | Yes | Your Google Gemini API key |
 | `GOOGLE_GENAI_USE_VERTEXAI` | No | Set to "true" if using Vertex AI (default: false) |
-| `GOOGLE_GENAI_MODEL` | No | Model name (default: gemini-3-flash-preview) |
+| `GOOGLE_GENAI_MODEL` | No | Model name (default: gemini-3.5-flash) |
 
 ---
 
@@ -363,9 +363,9 @@ Content-Type: application/json
 
 ## Technical Details
 
-### Gemini 3 Flash Preview
+### Gemini 3.5 Flash
 
-**Model**: `gemini-3-flash-preview`
+**Model**: `gemini-3.5-flash`
 
 **Specifications**:
 - **Context Window**: 1M tokens input / 64k tokens output

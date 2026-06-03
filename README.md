@@ -40,7 +40,7 @@ A modern, responsive web application for Providence Tennis Academy built with Ne
 ### Backend
 - **Express.js Server** - RESTful API server running on port 8080
 - **Hybrid Persistence** - Prisma/Postgres when `DATABASE_URL` is set, JSON file fallback otherwise
-- **Google Generative AI** - Gemini 3 Flash Preview for AI assistant with Google Search grounding
+- **Google Generative AI** - Gemini 3.5 Flash for AI assistant with Google Search grounding
 
 ### Additional Tools
 - **date-fns** - Date manipulation and formatting
@@ -69,7 +69,7 @@ JWT_SECRET=your-super-secure-jwt-secret-key-here
 SESSION_SECRET=your-super-secure-session-secret-here
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
@@ -154,7 +154,7 @@ providence_tennis/
 ## Key Features in Detail
 
 ### AI Assistant 🤖
-- Powered by Google Gemini 3 Flash Preview with Google Search grounding
+- Powered by Google Gemini 3.5 Flash with Google Search grounding
 - Can answer questions about:
   - Court reservations and booking
   - Facility information and hours
@@ -240,7 +240,7 @@ All environment variables are configured in `backend/.env` (single source of tru
 - `DATABASE_URL` - Postgres connection string for Prisma-backed persistence
 - `GOOGLE_API_KEY` - Google Generative AI API key (required for AI assistant)
 - `GOOGLE_GENAI_USE_VERTEXAI` - Set to "false" for standard API usage
-- `GOOGLE_GENAI_MODEL` - AI model name (default: gemini-3-flash-preview)
+- `GOOGLE_GENAI_MODEL` - AI model name (default: gemini-3.5-flash)
 - `STRIPE_SECRET_KEY` - Stripe secret key (required for payments)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key (served to frontend via API)
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret

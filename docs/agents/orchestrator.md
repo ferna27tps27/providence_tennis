@@ -65,7 +65,7 @@ Same as other AI agents — requires Google Gemini API key in **`backend/.env`**
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 ```
 
 ---

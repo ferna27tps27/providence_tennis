@@ -18,7 +18,7 @@ import {
   runGeminiFunctionCallingLoop,
 } from "./gemini-client";
 
-const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3.5-flash";
 
 const PLAYER_TRAINING_CONTEXT = `
 You are an AI tennis training coach for Providence Tennis Academy. Your role is to help players improve their game by:

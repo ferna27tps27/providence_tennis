@@ -28,7 +28,7 @@ The Admin AI Assistant requires Google Generative AI API credentials in **`backe
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 ```
 
 **Important Notes:**
@@ -68,7 +68,7 @@ GOOGLE_GENAI_MODEL=gemini-3-flash-preview
      ┌─────────────────────────────┐
      │  Admin AI Agent             │
      │  (backend/lib/admin-ai-agent.ts)│
-     │  - Gemini 3 Flash Preview   │
+     │  - Gemini 3.5 Flash   │
      │  - Custom booking tools     │
      │  - Conflict detection       │
      │  - Reservation management   │
@@ -419,13 +419,13 @@ Total: 3 bookings today"
 
 **From `backend/.env`:**
 ```env
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 ```
 
 **Initialization:**
 ```typescript
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
-const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3.5-flash";
 
 const model = genAI.getGenerativeModel({
   model: modelName,

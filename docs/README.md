@@ -33,6 +33,6 @@ Reference only; not needed for day-to-day development.
 - Backend: Express.js (port 8080), JWT auth, Stripe payments, file storage
 - Frontend: Next.js 14, React 18, Tailwind CSS (custom teal primary + lime accent palette)
 - Payments: Stripe (PaymentIntent + Payment Element), $40/hr court booking fee for logged-in users
-- AI: Google Gemini 3 Flash Preview (`gemini-3-flash-preview`)
+- AI: Google Gemini 3.5 Flash (`gemini-3.5-flash`)
 - AI Agents: Public chat, Admin booking assistant, Orchestrator (Ace) training coach
 - Coaching journals: coach notes and player feedback (dashboard Journal, optional link from bookings)

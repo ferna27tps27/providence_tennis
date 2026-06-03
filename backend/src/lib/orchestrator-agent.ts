@@ -31,7 +31,7 @@ import {
   runGeminiFunctionCallingLoop,
 } from "./gemini-client";
 
-const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3.5-flash";
 const academyTimeZone = "America/New_York";
 
 // ─── System Prompts ──────────────────────────────────────────────────

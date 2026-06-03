@@ -9,7 +9,7 @@ import { ValidationError } from "./errors/reservation-errors";
 import { chatWithOrchestrator } from "./orchestrator-agent";
 import { geminiClient } from "./gemini-client";
 
-const coachAiModelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+const coachAiModelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3.5-flash";
 const academyTimeZone = "America/New_York";
 const trainingPlanResponseSchema = {
   type: Type.OBJECT,

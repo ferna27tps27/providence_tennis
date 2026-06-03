@@ -120,7 +120,7 @@ export async function chatWithAdminAgent(
   conflictInfo?: ConflictInfo;
 }> {
   try {
-    const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3-flash-preview";
+    const modelName = process.env.GOOGLE_GENAI_MODEL || "gemini-3.5-flash";
 
     const tools = [
       {

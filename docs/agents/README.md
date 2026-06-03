@@ -8,7 +8,7 @@ Documentation for all AI-powered features in Providence Tennis Academy.
 | **Admin Assistant** | [admin-assistant.md](admin-assistant.md) | Admin-only: natural-language booking management (move, cancel, find, availability). |
 | **Orchestrator (Ace)** | [orchestrator.md](orchestrator.md) | Unified training coach: personalized plans, journal analysis, player management. Serves all roles. |
 
-All agents use Google Gemini 3 Flash Preview. See each doc for setup, env vars, and usage.
+All agents use Google Gemini 3.5 Flash. See each doc for setup, env vars, and usage.
 
 ## Dual-Mode Chat Interface
 

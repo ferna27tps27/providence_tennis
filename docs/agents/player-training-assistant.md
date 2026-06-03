@@ -63,7 +63,7 @@ Same as other AI agents — requires Google Gemini API key in **`backend/.env`**
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_GENAI_USE_VERTEXAI=false
-GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_MODEL=gemini-3.5-flash
 ```
 
 ---
@@ -506,7 +506,7 @@ I can help you manage bookings with natural language.
 
 ## Technical Stack
 
-- **Model**: Gemini 3 Flash Preview
+- **Model**: Gemini 3.5 Flash
 - **Backend**: Node.js/Express
 - **Frontend**: React/Next.js
 - **Storage**: File-based JSON (training-plans.json)

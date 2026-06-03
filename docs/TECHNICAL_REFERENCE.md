@@ -8,7 +8,7 @@ Single source of truth for ports, URLs, configuration, and design system.
 - **Frontend:** Next.js 14 on port **3009**
 - **Storage:** JSON files in `backend/data/`
 - **Payments:** Stripe (PaymentIntent API + Payment Element UI)
-- **AI:** Google Gemini 3 Flash Preview (`gemini-3-flash-preview`)
+- **AI:** Google Gemini 3.5 Flash (`gemini-3.5-flash`)
 
 ## Ports
 

@@ -271,7 +271,7 @@ Files:
 
 ## AI Agents
 
-The application includes three AI agents. All use Google Gemini 3 Flash Preview.
+The application includes three AI agents. All use Google Gemini 3.5 Flash.
 
 ### Public Assistant
 - Available on every page via the floating chat button (`components/AIAssistant.tsx`).

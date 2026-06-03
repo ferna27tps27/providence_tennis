@@ -133,7 +133,7 @@ describe("backend api", () => {
     process.env.RENDER = "true";
     process.env.NODE_ENV = "production";
     process.env.CHAT_HEALTH_TOKEN = "chat-health-secret";
-    process.env.GOOGLE_GENAI_MODEL = "gemini-3-flash-preview";
+    process.env.GOOGLE_GENAI_MODEL = "gemini-3.5-flash";
     process.env.GOOGLE_API_KEY = "test-google-api-key";
 
     try {
